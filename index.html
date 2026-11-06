@@ -319,6 +319,9 @@ td.rcvc .amt{color:#1d4f9c}
 .pd-card.ln .lt tr.rc.none td{background:none;color:#a3aca7}
 .pd-card.ln .lt tr.tot td{font-weight:700}
 .pd-card.ln .lt td.none{color:#a3aca7}
+/* 2026-11-06 사용자: "이 내용들은 가운데 정렬로 무조건 맞춰줘" → 품목 표 머리줄 · 칸 모두 가운데(숫자 칸 포함). 입고 전 줄만 왼쪽 */
+.pd-card.ln .lt th,.pd-card.ln .lt td,.pd-card.ln .lt .r{text-align:center!important}
+.pd-card.ln .lt tr.rc.none td[colspan]{text-align:left!important}
 .pd-info .c span.pono{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13.5px;color:var(--ink);margin-top:0} .pd-info .c span.pono a.gwdoc{font-size:13.5px;font-weight:700} .pd-info .c span.pono b{display:inline}
 .pd-card.ln .lt .dif{font-size:10.5px;font-weight:700}
 .lt-tag{display:inline-block;border-radius:6px;padding:1px 7px;font-size:11px;font-weight:700;background:#eef1f0;color:var(--ink-2)}
@@ -403,7 +406,7 @@ td .cut{display:inline-block;margin-top:3px;padding:1px 7px;border-radius:999px;
 <div id="toast" class="hidden"></div>
 <script>
 "use strict";
-const BUILD = "20261106.155221";   /* 배포할 때 scripts/deploy.js 가 판 번호로 바꾼다 */
+const BUILD = "20261106.160003";   /* 배포할 때 scripts/deploy.js 가 판 번호로 바꾼다 */
 const $ = (s, el) => (el || document).querySelector(s), $$ = (s, el) => [...(el || document).querySelectorAll(s)];
 const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const won = (n) => n == null || n === "" ? "" : Math.round(+n).toLocaleString("ko-KR");
