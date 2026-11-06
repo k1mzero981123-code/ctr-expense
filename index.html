@@ -343,7 +343,16 @@ td.rcvc .amt{color:#1d4f9c}
 .fundt thead th{position:sticky;top:0;z-index:3;background:#f4f6f5;color:var(--ink-2);font-weight:600;font-size:12px;text-align:center;white-space:nowrap;border-bottom:1px solid var(--line)}
 .fundt thead th small{display:block;font-size:10px;font-weight:400;color:#9aa49f;margin-top:1px}
 .fundt thead tr.tot th{top:46px;background:#fbfcfb;color:var(--ink);font-weight:600;font-size:12.5px}
-.fundt td.nw{white-space:nowrap!important} .fundt td.lf{text-align:left!important}
+.fundt td.nw{white-space:nowrap!important}
+/* 칸 필터 ▾ · 필터 창 */
+.fundt .cfh{display:inline-flex;align-items:center;gap:3px} .fundt .cf-btn{border:0;background:none;color:#9aa49f;cursor:pointer;font-size:11px;padding:0 2px;line-height:1}
+.fundt .cf-btn:hover{color:var(--g-d)} .fundt thead th.cf-on .cf-btn{color:#fff;background:var(--g);border-radius:4px}
+#cfPop{position:fixed;z-index:150;width:260px;background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.15);padding:10px;font-size:12.5px}
+#cfPop input[type=search]{width:100%;box-sizing:border-box;margin-bottom:6px}
+#cfPop .lst{max-height:300px;overflow:auto;border:1px solid var(--line-2);border-radius:6px;padding:4px 6px}
+#cfPop label{display:flex;gap:6px;align-items:flex-start;padding:2px 0;cursor:pointer;word-break:break-all} #cfPop label small{color:#9aa49f;margin-left:auto;flex:none}
+#cfPop .bt{display:flex;gap:6px;justify-content:flex-end;margin-top:8px} #cfPop .bt button{border:1px solid var(--line);background:#fff;border-radius:6px;padding:4px 10px;cursor:pointer;font:inherit} #cfPop .bt button.ok{background:var(--g);border-color:var(--g);color:#fff}
+#cfPop .more{color:#9aa49f;font-size:11.5px;padding:3px 0} .fundt td.lf{text-align:left!important}
 /* 2026-11-06 사용자: "텍스트 사이사이 마다 옅은 줄로 구분을 좀 해줘" → 칸마다 옅은 세로줄 */
 .fundt th,.fundt td{border-right:1px solid #e9edeb}
 .fundt thead th.w-us{background:#eef6f1} .fundt thead th.w-fin{background:#f3f1fa}
@@ -423,7 +432,7 @@ td .cut{display:inline-block;margin-top:3px;padding:1px 7px;border-radius:999px;
 <div id="toast" class="hidden"></div>
 <script>
 "use strict";
-const BUILD = "20261106.165318";   /* 배포할 때 scripts/deploy.js 가 판 번호로 바꾼다 */
+const BUILD = "20261106.171128";   /* 배포할 때 scripts/deploy.js 가 판 번호로 바꾼다 */
 const $ = (s, el) => (el || document).querySelector(s), $$ = (s, el) => [...(el || document).querySelectorAll(s)];
 const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const won = (n) => n == null || n === "" ? "" : Math.round(+n).toLocaleString("ko-KR");
@@ -1149,8 +1158,11 @@ function edit4(td){
   const tr = td.closest("tr"), no = tr.dataset.no, col = td.dataset.c, d = (renderFund._doc || new Map()).get(no);
   if (!d || !col) return;
   const e = ((S.data.meta || {})["f4:" + no] || {}).v || {}, cur = e[col] ? e[col].t : td.textContent.trim().replace(/^-$/, "");
-  td.innerHTML = `<input value="${esc(cur)}" placeholder="${/[JKM]/.test(col) ? "YYYY-MM-DD" : ""}">`;
-  const inp = td.querySelector("input"); inp.focus(); inp.select();
+  /* 2026-11-06 사용자: "송금예정일, 완료여부 < 달력으로 바로 표기할 수 있게 해주고 요청일자 < 달력으로 표기" → J·K·M 은 달력(날짜 고르면 바로 저장). 지금 값이 '2026.11.05'·'2026-11-05 …' 꼴이면 날짜로 바꿔 넣음 */
+  const isDate = /^[JKM]$/.test(col), dv = (() => { const m = /(\d{4})[.\-/](\d{1,2})[.\-/](\d{1,2})/.exec(cur); return m ? `${m[1]}-${m[2].padStart(2, "0")}-${m[3].padStart(2, "0")}` : ""; })();
+  td.innerHTML = isDate ? `<input type="date" value="${esc(dv)}">` : `<input value="${esc(cur)}">`;
+  const inp = td.querySelector("input"); inp.focus(); if (isDate){ try{ inp.showPicker(); }catch(e){} } else inp.select();
+  if (isDate) inp.onchange = () => { if (inp.value) save(); };
   let done = false;
   const back = () => { const n = document.createElement("tbody"); n.innerHTML = renderFund._row(d); tr.replaceWith(n.firstElementChild); };
   const save = async () => { if (done) return; done = true; const val = inp.value.trim();
@@ -1159,6 +1171,36 @@ function edit4(td){
     catch(err){ done = false; toast(err.message); } };
   inp.onkeydown = (ev) => { if (ev.key === "Enter"){ ev.preventDefault(); save(); } else if (ev.key === "Escape"){ done = true; back(); } };
   inp.onblur = () => save();
+}
+/* ④ 칸 필터 창 — 엑셀 자동 필터처럼: 그 칸 값 목록(건수) · 찾기 · 모두 선택/해제 · 확인 · 이 칸 필터 지우기.
+   목록은 '이 칸을 뺀 다른 필터'가 걸린 상태의 값만 보여 줌(엑셀과 같게). 값이 많으면 찾기로 좁힘(처음 400개까지 표시) */
+function cfOpen(btn, k){
+  const f = S.f.fund, cf = f.cf || (f.cf = {}), cells = renderFund._cells, val4 = renderFund._val;
+  const others = Object.keys(cf).filter(x => +x !== k && Array.isArray(cf[x]));
+  const rows = (renderFund._pre || []).map(d => cells(d).v).filter(v => others.every(x => cf[x].includes(val4(v, +x))));
+  const cnt = new Map(); for (const v of rows){ const s = val4(v, k); cnt.set(s, (cnt.get(s) || 0) + 1); }
+  const vals = [...cnt.keys()].sort((a, b) => (a === "(빈 칸)") - (b === "(빈 칸)") || a.localeCompare(b, "ko", { numeric: true }));
+  let sel = new Set(Array.isArray(cf[k]) ? cf[k] : vals), q = "";
+  let pop = $("#cfPop"); if (pop) pop.remove();
+  pop = document.createElement("div"); pop.id = "cfPop"; document.body.appendChild(pop);
+  const draw = () => {
+    const show = vals.filter(v => !q || v.toLowerCase().includes(q)), cut = show.slice(0, 400);
+    pop.innerHTML = `<input type="search" placeholder="찾기" value="${esc(q)}">
+      <label><input type="checkbox" data-all ${show.every(v => sel.has(v)) ? "checked" : ""}> <b>(모두 선택)</b><small>${show.length.toLocaleString()}개</small></label>
+      <div class="lst">${cut.map(v => `<label><input type="checkbox" data-v="${esc(v)}" ${sel.has(v) ? "checked" : ""}> <span>${esc(v)}</span><small>${cnt.get(v)}</small></label>`).join("")}${show.length > cut.length ? `<div class="more">… ${show.length - cut.length}개 더 — 찾기로 좁혀 주세요</div>` : ""}</div>
+      <div class="bt"><button data-x="clr">이 칸 필터 지우기</button><button data-x="no">취소</button><button class="ok" data-x="ok">확인</button></div>`;
+    const inp = pop.querySelector("input[type=search]");
+    inp.oninput = () => { q = inp.value.trim().toLowerCase(); const p = inp.selectionStart; draw(); const i2 = pop.querySelector("input[type=search]"); i2.focus(); i2.setSelectionRange(p, p); };
+    pop.querySelector("[data-all]").onchange = (e) => { for (const v of show) e.target.checked ? sel.add(v) : sel.delete(v); draw(); };
+    pop.querySelectorAll("[data-v]").forEach(c => c.onchange = () => { c.checked ? sel.add(c.dataset.v) : sel.delete(c.dataset.v); });
+    pop.querySelector("[data-x=ok]").onclick = () => { const picked = q ? vals.filter(v => sel.has(v) && v.toLowerCase().includes(q)) : vals.filter(v => sel.has(v));
+      if (picked.length === vals.length) delete cf[k]; else cf[k] = picked; pop.remove(); f.lim = 0; renderFund(); };
+    pop.querySelector("[data-x=no]").onclick = () => pop.remove();
+    pop.querySelector("[data-x=clr]").onclick = () => { delete cf[k]; pop.remove(); f.lim = 0; renderFund(); };
+  };
+  draw();
+  const r = btn.getBoundingClientRect(); pop.style.left = Math.max(8, Math.min(r.left - 10, innerWidth - 280)) + "px"; pop.style.top = Math.min(r.bottom + 4, innerHeight - pop.offsetHeight - 8) + "px";
+  setTimeout(() => { const off = (e) => { if (!pop.isConnected){ document.removeEventListener("mousedown", off); return; } if (!pop.contains(e.target)){ pop.remove(); document.removeEventListener("mousedown", off); } }; document.addEventListener("mousedown", off); }, 0);
 }
 function renderFund(){
   /* ④ 송금 현황 — 2026-11-06 사용자: "이 엑셀을 결국 우리는 계속 사용을 해야되는거거든 … 엑셀을 그대로 너한테 넣으라고 하니까 너가 지금 좀 헷갈리는 것 같애.
@@ -1170,7 +1212,9 @@ function renderFund(){
   const COLS = ["구분", "프로젝트", "문서번호", "현장명", "단계", "거래처", "기안부서", "기안자", "금액 (VAT포함)", "기안일자", "기안서 기준 요청일", "송금 예정일", "완료여부", "기엽님 합의", "요청일자", "추가 의견", "지연일", "미지급 잔액", "비고", "은행", "계좌번호", "예금주"];
   const vend = (d) => { const t = (d._det || []).map(l => l.tr).find(Boolean); return t || d._vendor || vendorOf(d.docTitle) || ""; };
   const ymdS = (s) => { s = String(s || ""); return /^\d{8}$/.test(s) ? `${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6)}` : s; };
-  let list = S.docs.filter(d => !d._gone && d.docNo && d.approState !== "-3" && d.approState !== "5" && String(d.upDate) >= "2026-01-01");
+  /* 엑셀처럼 경비 문서까지 전부 — 점검(judge)은 원재료·상품 지출결의만 다뤄서 S.docs 에는 경비 등이 빠져 있음(2026-11-06 확인: 2,562건 중 489건) → 수집한 지출결의 전체에서, 빠진 칸만 제목으로 채움 */
+  let list = S.data.docs.filter(d => !d._gone && d.docNo && d.approState !== "-3" && d.approState !== "5" && String(d.upDate) >= "2026-01-01");
+  for (const d of list) if (d._stage === undefined){ d._titlePos = poOf(d.docTitle); d._fix = fixOf(d); d._pos = d._fix ? d._fix.pos : d._titlePos; d._stage = stageOf(d.docTitle); d._pct = pctOf(d.docTitle); d._vendor = vendorOf(d.docTitle); d._sites = d._sites || []; d._iss = d._iss || []; }
   const nRej = list.filter(d => d.approState === "4").length;
   if (f.st === "rej") list = list.filter(d => d.approState === "4"); else if (f.st === "ok") list = list.filter(d => d.approState !== "4");
   const bizAll = [...new Set(list.map(biz4).filter(Boolean))].sort();
@@ -1179,7 +1223,7 @@ function renderFund(){
   const q = (f.q || "").trim().toLowerCase();
   if (q) list = list.filter(d => (d.docNo + " " + d.docTitle + " " + vend(d) + " " + d.empNm).toLowerCase().includes(q));
   list = list.slice().sort((a, b) => String(b.upDate).localeCompare(String(a.upDate)) || String(b.docNo).localeCompare(String(a.docNo)));
-  const sum = list.reduce((s, d) => s + (+d.docSumAm || 0), 0);
+  let sum = list.reduce((s, d) => s + (+d.docSumAm || 0), 0);
   /* 2026-11-06 사용자: "A~I 열까지는 전산 회계처리에서 내역을 그대로 … M~N 그리고 P, R~T열은 우리가 작성 … 반영된 수식이 있거든? 그 수식대로 … J~L, O, Q 는 재무팀에서 직접 작성"
      + 선택: 재무팀 칸은 공유 엑셀에서 읽기 · 지연일은 완료여부 없으면 비워 두기 · 기안부서는 전산 값 그대로 · 은행·계좌·예금주는 회계관리 지출결의서 안 지출내역(그림).
      칸별 출처: A~I 전산 / J 송금 예정일 · K 완료여부 · L 기엽님 합의 · Q 비고 = 공유 엑셀(문서번호로 맞춤) / M 요청일자 · N 추가 의견 = 지금은 공유 엑셀에 적힌 값 /
@@ -1200,6 +1244,11 @@ function renderFund(){
       v: [d.approState === "4" ? "반려" : "-", biz4(d), d.docNo, siteName(d) || "", stg4(d), vend(d), d.deptNm || "", d.empNm || "", won(d.docSumAm), String(d.upDate || ""), I,
         pick(e, "J", x.plan || ""), K, pick(e, "L", x.agree || ""), pick(e, "M", x.mreq || ""), pick(e, "N", x.note || ""), O, P, pick(e, "Q", x.memo || ""),
         pick(e, "R", ln.bk || x.bank || ""), pick(e, "S", x.acct || ""), pick(e, "T", ln.dp || x.holder || "")] }; };
+  /* 칸마다 필터(엑셀 자동 필터처럼) — 2026-11-06 사용자: "필터를 좀 걸 수 있게 해달라니까?" → 칸 이름 옆 ▾: 그 칸 값 목록 체크 · 검색. f.cf = { 칸번호: [고른 값…] } */
+  const cf = f.cf || (f.cf = {}), cfKeys = Object.keys(cf).filter(k => Array.isArray(cf[k]));
+  const val4 = (v, k) => { const s = String(v[k] == null ? "" : v[k]).trim(); return s === "" ? "(빈 칸)" : s; };
+  renderFund._pre = list; renderFund._cells = cells; renderFund._val = val4;
+  if (cfKeys.length){ list = list.filter(d => { const v = cells(d).v; return cfKeys.every(k => cf[k].includes(val4(v, +k))); }); sum = list.reduce((s, d) => s + (+d.docSumAm || 0), 0); }
   const unpaid = list.reduce((s, d) => s + cells(d).pNum, 0);
   const row = (d) => { const rej = d.approState === "4", c = cells(d);
     return `<tr class="${rej ? "rj" : ""}" data-no="${esc(d.docNo)}">` + c.v.map((x, k) => { const col = COL4[k], ed = !!WHO4[k], mine = ed && c.e[col];
@@ -1211,9 +1260,10 @@ function renderFund(){
       <select id="fBiz"><option value="">프로젝트 전체</option>${bizAll.map(b => `<option ${f.biz === b ? "selected" : ""}>${esc(b)}</option>`).join("")}</select>
       <select id="fWho">${whoOpts(f.who)}</select>
       <input type="search" id="fQ" placeholder="찾기 (문서번호 · 제목 · 거래처 …)" value="${esc(f.q)}">
+      ${cfKeys.length ? `<button class="tfx" id="cfClear">칸 필터 ${cfKeys.length}개 걸림 · 모두 풀기 ✕</button>` : ""}
       <span class="cnt">${list.length.toLocaleString()}건 · ${won(sum)}원</span></div>
     <div class="tw fundw"><table class="t fundt">
-      <thead><tr>${COLS.map((c, k) => `<th class="${k < 3 ? "fz fz" + k : ""}${WHO4[k] ? " w-" + WHO4[k] : ""}">${esc(c)}${WHO4[k] ? `<small>${WHO4[k] === "us" ? "우리 작성" : "재무팀 작성"}</small>` : ""}</th>`).join("")}</tr>
+      <thead><tr>${COLS.map((c, k) => `<th class="${k < 3 ? "fz fz" + k : ""}${WHO4[k] ? " w-" + WHO4[k] : ""}${cf[k] ? " cf-on" : ""}"><span class="cfh">${esc(c)}<button class="cf-btn" data-k="${k}" title="이 칸으로 거르기">▾</button></span>${WHO4[k] ? `<small>${WHO4[k] === "us" ? "우리 작성" : "재무팀 작성"}</small>` : ""}</th>`).join("")}</tr>
       <tr class="tot">${COLS.map((c, k) => `<th class="${k < 3 ? "fz fz" + k + " " : ""}${k === 8 || k === 17 ? "r" : ""}">${k === 2 ? "계" : k === 8 ? won(sum) : k === 17 ? won(unpaid) : ""}</th>`).join("")}</tr></thead>
       <tbody>${shown.map(row).join("") || `<tr><td colspan="${COLS.length}" class="empty">문서가 없습니다.</td></tr>`}</tbody></table>
       ${list.length > shown.length ? `<div class="more"><button id="fMore">${(list.length - shown.length).toLocaleString()}건 더 보기</button></div>` : ""}</div>`;
@@ -1224,6 +1274,8 @@ function renderFund(){
   $("#fWho").onchange = (e) => { f.who = e.target.value; f.lim = 0; renderFund(); };
   $("#fBiz").onchange = (e) => { f.biz = e.target.value; f.lim = 0; renderFund(); };
   $("#v-fund tbody").onclick = (e) => { const td = e.target.closest("td.ed"); if (td && !td.querySelector("input")) edit4(td); };
+  $$("#v-fund .cf-btn").forEach(b => b.onclick = (e) => { e.stopPropagation(); cfOpen(b, +b.dataset.k); });
+  if ($("#cfClear")) $("#cfClear").onclick = () => { f.cf = {}; f.lim = 0; renderFund(); };
   if ($("#fMore")) $("#fMore").onclick = () => { f.lim = (f.lim || 500) + 1000; renderFund(); };
   $("#fQ").oninput = (e) => { f.q = e.target.value; f.lim = 0; clearTimeout(renderFund._t); renderFund._t = setTimeout(() => { renderFund(); const i = $("#fQ"); i.focus(); i.setSelectionRange(i.value.length, i.value.length); }, 250); };
 }
