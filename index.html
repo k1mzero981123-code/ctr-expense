@@ -318,6 +318,8 @@ td.rcvc .amt{color:#1d4f9c}
 .pd-card.ln .lt tr.rc td{background:#f6f9ff}
 .pd-card.ln .lt tr.rc.none td{background:none;color:#a3aca7}
 .pd-card.ln .lt tr.tot td{font-weight:700}
+.pd-card.ln .lt td.none{color:#a3aca7}
+.pd-info .c span.pono{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:13.5px;color:var(--ink);margin-top:0} .pd-info .c span.pono a.gwdoc{font-size:13.5px;font-weight:700} .pd-info .c span.pono b{display:inline}
 .pd-card.ln .lt .dif{font-size:10.5px;font-weight:700}
 .lt-tag{display:inline-block;border-radius:6px;padding:1px 7px;font-size:11px;font-weight:700;background:#eef1f0;color:var(--ink-2)}
 .lt-tag.rc{background:#e7f0ff;color:#1d4f9c} .lt-tag.none{background:#f3f4f4;color:#a3aca7}
@@ -398,7 +400,7 @@ td .cut{display:inline-block;margin-top:3px;padding:1px 7px;border-radius:999px;
 <div id="toast" class="hidden"></div>
 <script>
 "use strict";
-const BUILD = "20261106.143731";   /* 배포할 때 scripts/deploy.js 가 판 번호로 바꾼다 */
+const BUILD = "20261106.144202";   /* 배포할 때 scripts/deploy.js 가 판 번호로 바꾼다 */
 const $ = (s, el) => (el || document).querySelector(s), $$ = (s, el) => [...(el || document).querySelectorAll(s)];
 const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const won = (n) => n == null || n === "" ? "" : Math.round(+n).toLocaleString("ko-KR");
@@ -1093,10 +1095,11 @@ const xlRgb = (n) => { n = +n; if (!(n >= 0)) return ""; const r = n & 255, g = 
 /* 발주번호 옆 단추 — 2026-11-06 사용자: 발주서 결재문서 팝업 주소를 "하이퍼링크로 해서 옆에" · "발주문서는 왜 아직도 반영이 안되는거야?".
    수집(sync.js syncPoDocs)이 전체결재문서에서 찾은 발주서 결재문서(ex_meta.podocs)가 있으면 그 문서를 팝업 창으로, 없으면(아직 못 찾음) 예전처럼 발주등록 화면 + 발주번호 복사 */
 const eapUrlOf = (docId, formId, approKey) => `https://gw.ctrenergy.co.kr/#/popup?MicroModuleCode=eap&docAuth=0&docID=${encodeURIComponent(docId)}&formId=${encodeURIComponent(formId || 22)}&pageCode=UBA1060&callComp=UBAP002${approKey ? "&approkey=" + encodeURIComponent(approKey) : ""}`;
-function poDocBtn(n){
+/* 2026-11-06 사용자: "발주번호는 저렇게 밑으로 링크를 걸지말고 … 발주번호 클릭하면 뜰 수 있게" → 발주번호 자체가 링크(팝업). 결재문서를 못 찾은 발주만 번호 오른쪽에 작은 '발주등록' 단추 */
+function poNoLink(n){
   const x = (((S.data || {}).meta || {}).podocs || {}).map, d = x && x[n];
-  if (d && d.d) return `<a class="gwbtn gwdoc-po gwdoc" href="${esc(eapUrlOf(d.d, d.f || 144))}" target="_blank" rel="noopener" title="아마란스 발주서 결재문서 열기${d.no ? " · " + esc(d.no) : ""}${d.st ? " · " + esc(d.st) : ""}">발주서 결재문서 ↗</a>`;
-  return `<button class="gwbtn" data-gwpo="${esc(n)}" title="결재문서를 아직 못 찾은 발주 — 아마란스 발주등록을 열고 발주번호를 복사합니다(발주번호 칸에 Ctrl+V 후 조회)">아마란스 발주등록 ↗</button>`;
+  if (d && d.d) return `<a class="gwdoc mono" href="${esc(eapUrlOf(d.d, d.f || 144))}" target="_blank" rel="noopener" title="눌러서 아마란스 발주서 결재문서 보기${d.no ? " · " + esc(d.no) : ""}${d.st ? " · " + esc(d.st) : ""}">${esc(n)} ↗</a>`;
+  return `<b class="mono">${esc(n)}</b><button class="gwbtn" data-gwpo="${esc(n)}" title="결재문서를 아직 못 찾은 발주 — 아마란스 발주등록을 열고 발주번호를 복사합니다(발주번호 칸에 Ctrl+V 후 조회)">발주등록 ↗</button>`;
 }
 function renderFund(){
   /* 2026-11-06 사용자: "이따위로 만들어두면 내가 어떻게 보라는거냐 … 저렇게 잘리고 굵직하게 저렇게 해두면 가독성이 완전 떨어지자나" →
@@ -1262,7 +1265,7 @@ function poDetailHtml(n, p, c, docs){
   const T = (s) => `title="${esc(s)}"`;
   const paid = p ? (p._paid || 0) : 0;
   const info = p ? `<div class="pd-info">
-      <div class="c"><i>발주일</i><b>${ymd(p.poDt)}</b></div><div class="c"><i>발주번호</i><b class="mono">${esc(p.poNb)}</b>${poDocBtn(p.poNb)}</div><div class="c"><i>거래처</i><b>${esc(shortVendor(p.trNm))}</b></div><div class="c"><i>실적담당</i><b>${esc(p.plnNm)}</b></div><div class="c"><i>프로젝트</i><b>${esc(p.pjtNm)}</b></div>
+      <div class="c"><i>발주일</i><b>${ymd(p.poDt)}</b></div><div class="c"><i>발주번호</i><span class="pono">${poNoLink(p.poNb)}</span></div><div class="c"><i>거래처</i><b>${esc(shortVendor(p.trNm))}</b></div><div class="c"><i>실적담당</i><b>${esc(p.plnNm)}</b></div><div class="c"><i>프로젝트</i><b>${esc(p.pjtNm)}</b></div>
       <div class="c k"><i>발주금액 <small>VAT 포함</small></i><b class="mono">${won(p.sum)}</b><span class="mono">공급가 ${won(p.sup)} + 부가세 ${won(p.vat)}</span></div>
       <div class="c k"><i>입고금액 <small>계산서</small></i><b class="mono blu">${p._rcvSum ? won(p._rcvSum) : "—"}</b><span>${p._rcvSum ? ymd(p._rcvLast) + (p._rcvAll ? "" : " · 일부") + " · 입고번호 " + esc([...new Set(p._rcv.map(x => x.rv))].join(", ")) : "입고 전"}</span></div>
       <div class="c k"><i>지출결의 <small>진행+결재완료</small></i><b class="mono ${paid > p.sum + tolOf(p.sum) ? "neg" : ""}">${won(paid)}</b><span>${docs.filter(d => d._live).length}건</span></div>
@@ -1279,16 +1282,17 @@ function poDetailHtml(n, p, c, docs){
       const rc = l._rcv || [], rq = rc.reduce((s, x) => s + (+x.qt || 0), 0), rs = rc.reduce((s, x) => s + (+x.sum || 0), 0), um = rc.length ? +rc[rc.length - 1].um : null, diff = um != null && Math.abs(um - l.um) > 0.5;
       const site = String(l.rem || "").replace(/^\s*\([^)]*\)\s*/, "");
       /* 2026-11-06 사용자: "이 부분이 너무 보기가 어렵고 가독성이 안좋은 것 같애 … 깔끔하고 한눈에" → 발주 줄 · 입고 줄을 칸 맞춘 작은 표로(같은 칸끼리 위아래로 비교). 입고가 여러 번이면 입고마다 한 줄 */
+      const chgX = rc.filter(x => Math.abs(+x.um - l.um) > 0.5).pop(), chg = chgX ? +chgX.um : 0;
       const rcvRow = (x) => { const u = +x.um, du = u - l.um, dif = Math.abs(du) > 0.5;
         return `<tr class="rc"><td><span class="lt-tag rc">입고</span></td><td>${ymd(x.dt).slice(5)}</td><td class="mono">${esc(x.rv)}</td><td class="r">${won(x.qt)}</td>
-          <td class="r ${dif ? "neg" : ""}">${won(u)}${dif ? ` <small class="dif">${du < 0 ? "▼" : "▲"}${won(Math.abs(du))}</small>` : ""}</td><td class="r">${won(x.sup)}</td><td class="r"><b class="blu">${won(x.sum)}</b></td></tr>`; };
+          <td class="r">${won(l.um)}</td><td class="r ${dif ? "neg" : "none"}">${dif ? `${won(u)} <small class="dif">${du < 0 ? "▼" : "▲"}${won(Math.abs(du))}</small>` : "없음"}</td><td class="r">${won(x.sup)}</td><td class="r"><b class="blu">${won(x.sum)}</b></td></tr>`; };
       return `<div class="pd-card ln">
         <div class="r1"><span class="sq">${l.sq}</span><b ${T(l.nm + " / " + l.dc)}>${esc(l.dc || l.nm)}</b><span class="site" ${T(l.rem)}>${esc(site)}</span></div>
-        <table class="lt"><colgroup><col style="width:50px"><col style="width:52px"><col style="width:118px"><col style="width:52px"><col><col style="width:100px"><col style="width:104px"></colgroup>
-          <thead><tr><th></th><th>날짜</th><th>번호</th><th class="r">수량</th><th class="r">단가</th><th class="r">공급가액</th><th class="r">합계액</th></tr></thead>
-          <tbody><tr><td><span class="lt-tag">발주</span></td><td>${ymd(p.poDt).slice(5)}</td><td class="mono">${esc(n)}</td><td class="r">${won(l.qt)}</td><td class="r">${won(l.um)}</td><td class="r">${won(l.sup)}</td><td class="r"><b>${won(l.sum)}</b></td></tr>
-          ${rc.length ? rc.map(rcvRow).join("") + (rc.length > 1 ? `<tr class="rc tot"><td></td><td colspan="2">입고 합계${rq < l.qt ? " · 일부" : ""}</td><td class="r">${won(rq)}</td><td></td><td class="r">${won(rc.reduce((s, x) => s + (+x.sup || 0), 0))}</td><td class="r"><b class="blu">${won(rs)}</b></td></tr>` : "")
-            : `<tr class="rc none"><td><span class="lt-tag none">입고</span></td><td colspan="6">입고 전 (계산서 없음)</td></tr>`}</tbody></table></div>`; };
+        <table class="lt"><colgroup><col style="width:48px"><col style="width:50px"><col><col style="width:52px"><col style="width:76px"><col style="width:112px"><col style="width:96px"><col style="width:102px"></colgroup>
+          <thead><tr><th></th><th>날짜</th><th>번호</th><th class="r">수량</th><th class="r">단가</th><th class="r">변경단가</th><th class="r">공급가액</th><th class="r">합계액</th></tr></thead>
+          <tbody><tr><td><span class="lt-tag">발주</span></td><td>${ymd(p.poDt).slice(5)}</td><td class="mono">${esc(n)}</td><td class="r">${won(l.qt)}</td><td class="r">${won(l.um)}</td><td class="r ${chg ? "neg" : "none"}">${chg ? `${won(chg)} <small class="dif">${chg < l.um ? "▼" : "▲"}${won(Math.abs(chg - l.um))}</small>` : "없음"}</td><td class="r">${won(l.sup)}</td><td class="r"><b>${won(l.sum)}</b></td></tr>
+          ${rc.length ? rc.map(rcvRow).join("") + (rc.length > 1 ? `<tr class="rc tot"><td></td><td colspan="2">입고 합계${rq < l.qt ? " · 일부" : ""}</td><td class="r">${won(rq)}</td><td></td><td></td><td class="r">${won(rc.reduce((s, x) => s + (+x.sup || 0), 0))}</td><td class="r"><b class="blu">${won(rs)}</b></td></tr>` : "")
+            : `<tr class="rc none"><td><span class="lt-tag none">입고</span></td><td colspan="7">입고 전 (계산서 없음)</td></tr>`}</tbody></table></div>`; };
   const left = p ? `<div class="pd-col"><h4>발주 품목 <small>${p.lines.length}줄</small></h4>${p.lines.map(lineCard).join("")}</div>` : "";
   /* 오른쪽 — 지출결의: 선금 / 잔금(잔금·100%·중도금·차액) 나눠서 카드 */
   const card = (d) => { const ks = [...new Set(d._iss)];
