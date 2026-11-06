@@ -343,7 +343,7 @@ td.rcvc .amt{color:#1d4f9c}
 .fundt thead th{position:sticky;top:0;z-index:3;background:#f4f6f5;color:var(--ink-2);font-weight:600;font-size:12px;text-align:center;white-space:nowrap;border-bottom:1px solid var(--line)}
 .fundt thead th small{display:block;font-size:10px;font-weight:400;color:#9aa49f;margin-top:1px}
 .fundt thead tr.tot th{top:46px;background:#fbfcfb;color:var(--ink);font-weight:600;font-size:12.5px}
-.fundt td.nw{white-space:nowrap!important}
+.fundt td.nw{white-space:nowrap!important} .fundt td.lf{text-align:left!important}
 /* 2026-11-06 사용자: "텍스트 사이사이 마다 옅은 줄로 구분을 좀 해줘" → 칸마다 옅은 세로줄 */
 .fundt th,.fundt td{border-right:1px solid #e9edeb}
 .fundt thead th.w-us{background:#eef6f1} .fundt thead th.w-fin{background:#f3f1fa}
@@ -418,7 +418,7 @@ td .cut{display:inline-block;margin-top:3px;padding:1px 7px;border-radius:999px;
 <div id="toast" class="hidden"></div>
 <script>
 "use strict";
-const BUILD = "20261106.164636";   /* 배포할 때 scripts/deploy.js 가 판 번호로 바꾼다 */
+const BUILD = "20261106.165158";   /* 배포할 때 scripts/deploy.js 가 판 번호로 바꾼다 */
 const $ = (s, el) => (el || document).querySelector(s), $$ = (s, el) => [...(el || document).querySelectorAll(s)];
 const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const won = (n) => n == null || n === "" ? "" : Math.round(+n).toLocaleString("ko-KR");
@@ -525,7 +525,7 @@ function judge(){
   /* 발주 단위 */
   for (const [n, list] of byPo){
     const p = P.get(n), live = list.filter(d => d._live), iss = [];
-    if (!p){ if (live.length) iss.push({ k: "nofound", lv: "gray", t: "발주 목록에 없는 발주번호 (실적담당이 4명이 아니거나 올해 이전 발주)" }); }
+    if (!p){ if (live.length) iss.push({ k: "nofound", lv: "gray", t: "이 발주번호는 우리 4명이 올린 올해 발주 목록에 없어요 → 다른 담당자 발주이거나 올해 이전 발주, 또는 번호를 잘못 적은 건지 확인해 주세요" }); }
     const inPo = (d) => new Set(d._base.filter(x => x.po === n).map(x => x.key));
     /* ① 같은 단계(선금·잔금·대금) 지출결의가 같은 현장(품목 줄)에 2건 이상 — 중도금·차액은 여러 번일 수 있어 뺀다 */
     const stg = live.filter(d => d._stage !== "중도금" && d._stage !== "차액"), used = new Set();
@@ -536,17 +536,17 @@ function judge(){
       if (grp.length > 1){
         const base = Math.max(...grp.map(d => d._baseSum || 0)), tot = grp.reduce((s, d) => s + d.docSumAm, 0);
         const lv = grp[0]._stage === "선금" || !base || tot > base + tolOf(base) ? "red" : "org";   /* 잔금·대금을 나눠 낸 경우(합계가 발주 안)는 주황 */
-        iss.push({ k: "dup", lv, t: grp[0]._stage + " 지출결의 " + grp.length + "건" + (grp[0]._siteLbl ? " (" + grp[0]._siteLbl + ")" : "") + " — " + grp.map(d => shortNo(d) + " " + won(d.docSumAm) + "원(" + ST[d.approState] + ")").join(" · ") + (lv === "org" ? " · 합계는 발주 안 — 나눠 지급인지 확인" : ""), docs: grp });
+        iss.push({ k: "dup", lv, t: (grp[0]._siteLbl ? "[" + grp[0]._siteLbl + "] " : "") + `같은 현장에 ${grp[0]._stage} 지출결의서가 ${grp.length}번 올라왔어요: ` + grp.map(d => shortNo(d) + " " + won(d.docSumAm) + "원(" + ST[d.approState] + ")").join(" · ") + (lv === "org" ? " → 합계는 발주금액 안이라, 나눠서 낸 건지 확인해 주세요" : " → 두 번 낸 건 아닌지 확인해 주세요"), docs: grp });
       }
     }
     /* ② 같은 금액이 2건 이상 */
     const am = {}; for (const d of live){ const x = Math.round(d.docSumAm); (am[x] = am[x] || []).push(d); }
     /* 같은 현장(품목 줄이 겹침)끼리만 — 한 발주 안 다른 현장의 선금이 우연히 같은 금액인 건 중복 아님(2026-11-05 PO2610000313) */
-    for (const [x, a0] of Object.entries(am)){ const a = a0.filter(d => a0.some(o => o !== d && [...inPo(o)].some(k => inPo(d).has(k)))); if (a.length > 1 && !iss.some(i => i.k === "dup" && a.every(d => i.docs.includes(d)))) iss.push({ k: "same", lv: "red", t: "같은 금액 " + won(x) + "원 지출결의 " + a.length + "건 — " + a.map(shortNo).join(" · "), docs: a }); }
+    for (const [x, a0] of Object.entries(am)){ const a = a0.filter(d => a0.some(o => o !== d && [...inPo(o)].some(k => inPo(d).has(k)))); if (a.length > 1 && !iss.some(i => i.k === "dup" && a.every(d => i.docs.includes(d)))) iss.push({ k: "same", lv: "red", t: `금액이 똑같은(${won(x)}원) 지출결의서가 ${a.length}번 올라왔어요: ` + a.map(shortNo).join(" · ") + " → 같은 돈을 두 번 내는 건 아닌지 확인해 주세요", docs: a }); }
     /* ⑤ 제목의 거래처가 발주 거래처와 다름 — 제목에 다른 발주번호를 적었을 수 있다(2026-11-04 사용자: 제목 오기 체크) */
     if (p) for (const d of live){ const v = normVendor(d._vendor), pv = normVendor(p.trNm);
       if (v && pv && !(pv.includes(v) || v.includes(pv) || pv.slice(0, 3) === v.slice(0, 3)) && !(d._fix && !d._fix.pos.includes(n)))
-        iss.push({ k: "vendor", lv: "org", t: "제목 거래처 '" + d._vendor + "' ≠ 발주 거래처 '" + p.trNm + "' — 발주번호를 잘못 적었는지 확인 · " + shortNo(d), docs: [d] }); }
+        iss.push({ k: "vendor", lv: "org", t: `지출결의서 제목의 거래처는 '${d._vendor}'인데 발주 거래처는 '${p.trNm}'예요 → 제목에 발주번호를 잘못 적었는지 확인해 주세요 · ` + shortNo(d), docs: [d] }); }
     let done = 0, going = 0;
     if (p){
       /* ③ 현장(품목 줄 묶음)별로 지출결의 합계가 발주금액(VAT 포함)보다 큼 */
@@ -557,19 +557,22 @@ function judge(){
       /* 운반비(발주에 결재 안 받고 지출결의에만 쓰는 경우)는 빼고 비교 — 2026-11-05 사용자 */
       const frt = live.reduce((s, d) => { const all = d._pos.reduce((a, x) => a + ((P.get(x) || {}).sum || 0), 0); return s + d._extra * (d._pos.length > 1 && all > 0 ? p.sum / all : 1); }, 0);
       for (const o of g.values()) if (o.paid - (p.sum ? frt * o.sum / p.sum : 0) > o.sum + tolOf(o.sum))
-        iss.push({ k: "over", lv: o.paid > o.sum * 1.05 ? "red" : "org", t: (multi ? "[" + o.lbl + "] " : "") + "발주 " + won(o.sum) + "원인데 지출결의 합계 " + won(o.paid) + "원 (+" + won(o.paid - o.sum) + "원, " + (o.paid / o.sum * 100).toFixed(1) + "%)" });
+        iss.push({ k: "over", lv: o.paid > o.sum * 1.05 ? "red" : "org", t: (multi ? "[" + o.lbl + "] " : "") + `발주는 ${won(o.sum)}원인데 지출결의서를 모두 더하면 ${won(o.paid)}원이에요 → 발주보다 ${won(o.paid - o.sum)}원 더 썼어요 (발주의 ${(o.paid / o.sum * 100).toFixed(1)}%)` });
       /* ④ 제목의 % 와 금액이 맞지 않음 — 그 현장 품목 줄 금액 × % */
       for (const d of live) if (d._pct != null && d._baseSum > 0){
-        let want = d._baseSum * d._pct / 100, how = "발주 × " + d._pct + "%";
-        /* 잔금은 '발주금액 − 같은 품목 줄에 먼저 낸 선금·중도금'과 맞으면 정상 — 선금을 옛 단가로 내고 잔금으로 맞춘 경우 */
-        if (d._stage === "잔금"){
-          const mine = new Set(d._base.map(x => x.key));
-          const before = live.filter(o => o !== d && o._stage !== "잔금" && o._base.some(x => mine.has(x.key))).reduce((s, o) => s + o.docSumAm, 0);
-          if (before > 0 && Math.abs(d.docSumAm - (d._baseSum - before)) <= tolOf(d._baseSum)) continue;
-          if (before > 0){ want = d._baseSum - before; how = "발주 − 선금 " + won(before) + "원"; }
-        }
-        const diff = d.docSumAm - want;
-        if (Math.abs(diff) > tolOf(want)) iss.push({ k: "pct", lv: diff > want * 0.05 ? "red" : "org", t: d._stage + " " + d._pct + "%" + (d._siteLbl && multi ? " [" + d._siteLbl + "]" : "") + " → " + how + " = " + won(want) + "원인데 기안 " + won(d.docSumAm) + "원 (" + (diff > 0 ? "+" + won(diff) + "원 많음" : won(-diff) + "원 적음") + ") · " + shortNo(d), docs: [d] });
+        /* 2026-11-06 사용자: (PO2610000246 '잔금 80% [..] → 발주 − 선금 … 원인데 기안 … 적음' 캡처) "이따위로 적어두면 내가 어떻게 이해할까? 14살짜리도 보면 바로 이해할 수 있도록"
+           → ① 쉬운 말로. ② 입고(계산서)가 다 들어온 품목 줄이면 계산서 금액 기준으로도 맞춰 봄 — 입고 때 단가가 내려가 잔금을 계산서에 맞춰 낸 건 정상(그 건은 계산서 − 선금 과 딱 맞았음) */
+        const mine = new Set(d._base.map(x => x.key));
+        const bl = d._base.map(x => x.l), rcvAll = bl.length && bl.every(l => (l._rcv || []).reduce((s, r) => s + (+r.qt || 0), 0) >= (+l.qt || 0) - 1e-6);
+        const rcvBase = rcvAll ? bl.reduce((s, l) => s + (l._rcv || []).reduce((a, r) => a + (+r.sum || 0), 0), 0) : 0;
+        const before = d._stage === "잔금" ? live.filter(o => o !== d && o._stage !== "잔금" && o._base.some(x => mine.has(x.key))).reduce((s, o) => s + o.docSumAm, 0) : 0;
+        const ok = (base) => Math.abs(d.docSumAm - (before > 0 ? base - before : base * d._pct / 100)) <= tolOf(base);
+        if (ok(d._baseSum) || (rcvBase && ok(rcvBase))) continue;
+        const want = before > 0 ? d._baseSum - before : d._baseSum * d._pct / 100, diff = d.docSumAm - want;
+        const where = d._siteLbl && multi ? "[" + d._siteLbl + "] " : "";
+        const how = before > 0 ? `${d._stage}은 '발주 ${won(d._baseSum)}원 − 먼저 낸 선금 ${won(before)}원 = ${won(want)}원'이어야 하는데` : `${d._stage} ${d._pct}%라면 '발주 ${won(d._baseSum)}원의 ${d._pct}% = ${won(want)}원'이어야 하는데`;
+        const rw = rcvBase ? (before > 0 ? rcvBase - before : rcvBase * d._pct / 100) : 0, rcvTip = rcvBase && Math.abs(rw - want) > tolOf(want) ? ` (계산서 기준이면 ${won(rw)}원)` : "";
+        iss.push({ k: "pct", lv: diff > want * 0.05 ? "red" : "org", t: `${where}${how}, 올라온 금액은 ${won(d.docSumAm)}원이에요 → ${won(Math.abs(diff))}원 ${diff > 0 ? "더 많아요" : "적어요"}${rcvTip} · ${shortNo(d)}`, docs: [d] });
       }
     }
     const paid = done + going;
@@ -577,7 +580,7 @@ function judge(){
     /* 운반비 등 원재료·상품이 아닌 상세 줄은 입고(계산서)에 없으므로 빼고 비교 */
     const extra = p ? live.reduce((s, d) => { const all = d._pos.reduce((a, x) => a + ((P.get(x) || {}).sum || 0), 0); return s + d._extra * (d._pos.length > 1 && all > 0 ? p.sum / all : 1); }, 0) : 0;
     if (p && p._rcvAll && p._rcvSum > 0 && paid - extra > p._rcvSum + tolOf(p._rcvSum))
-      iss.push({ k: "rcvover", lv: "red", t: "입고(계산서) " + won(p._rcvSum) + "원인데 지출결의 합계 " + won(paid - extra) + "원" + (extra ? "(운반비 등 " + won(extra) + "원 뺌)" : "") + " (+" + won(paid - extra - p._rcvSum) + "원)" + (p._cut.length ? " · 입고에서 단가 인하 " + p._cut.length + "줄" : "") });
+      iss.push({ k: "rcvover", lv: "red", t: `계산서(입고)는 ${won(p._rcvSum)}원인데 지출결의서를 모두 더하면 ${won(paid - extra)}원이에요${extra ? `(운반비 ${won(extra)}원은 뺐어요)` : ""} → 계산서보다 ${won(paid - extra - p._rcvSum)}원 더 썼어요` + (p._cut.length ? ` · 입고 때 단가가 내려간 품목이 ${p._cut.length}줄 있어요` : "") });
     for (const i of iss) for (const d of (i.docs || live)) if (!d._iss.includes(i.k)) d._iss.push(i.k);
     const sig = live.map(d => d.linkKey).sort().join(",");
     const rv = R.get("po:" + n) || null;
@@ -595,13 +598,13 @@ function judge(){
     const all = [a[i], ...grp].sort((x, y) => String(x.upDate).localeCompare(String(y.upDate))), key = "xpo:" + all.map(d => d.linkKey).sort().join(",");
     if (cases.some(c => c.key === key)) continue;
     for (const d of all) if (!d._iss.includes("xpo")) d._iss.push("xpo");
-    cases.push({ key, po: "", doc: all[0], docs: all, live: all, iss: [{ k: "xpo", lv: "red", t: "발주번호가 다른데 같은 현장(" + all[0]._sites.join(",") + ")·같은 거래처·같은 금액 " + won(a[i].docSumAm) + "원 — " + all.map(d => shortNo(d) + " " + d._pos.join(",") + "(" + ST[d.approState] + ")").join(" · ") }], paid: all.reduce((s, d) => s + d.docSumAm, 0), sig: all.map(d => d.linkKey).sort().join(","), rv: R.get(key) || null, stale: false });
+    cases.push({ key, po: "", doc: all[0], docs: all, live: all, iss: [{ k: "xpo", lv: "red", t: "발주번호는 다른데 현장(" + all[0]._sites.join(",") + ")·거래처·금액(" + won(a[i].docSumAm) + "원)이 똑같은 지출결의서가 있어요 → 반려 뒤 다시 올렸는데 앞 문서도 살아 있는 건지 확인해 주세요: " + all.map(d => shortNo(d) + " " + d._pos.join(",") + "(" + ST[d.approState] + ")").join(" · ") }], paid: all.reduce((s, d) => s + d.docSumAm, 0), sig: all.map(d => d.linkKey).sort().join(","), rv: R.get(key) || null, stale: false });
   }
   /* 문서 단위 — 발주번호 없음 */
   for (const d of docs) if (d._live && !d._pos.length && !EXEMPT.test(d.docTitle)){
     d._iss.push("nopo");
     const rv = R.get("doc:" + d.linkKey) || null;
-    cases.push({ key: "doc:" + d.linkKey, po: "", doc: d, docs: [d], live: [d], iss: [{ k: "nopo", lv: "gray", t: "제목에 발주번호가 없습니다" }], paid: d.docSumAm, sig: d.linkKey, rv, stale: false });
+    cases.push({ key: "doc:" + d.linkKey, po: "", doc: d, docs: [d], live: [d], iss: [{ k: "nopo", lv: "gray", t: "지출결의서 제목에 발주번호가 없어요 → 어느 발주의 돈인지 확인해 주세요" }], paid: d.docSumAm, sig: d.linkKey, rv, stale: false });
   }
   for (const c of cases){
     c.lv = c.iss.some(i => i.lv === "red") ? 3 : c.iss.some(i => i.lv === "org") ? 2 : 1;
@@ -1127,6 +1130,10 @@ function poNoLink(n){
   return `<b class="mono">${esc(n)}</b><button class="gwbtn" data-gwpo="${esc(n)}" title="결재문서를 아직 못 찾은 발주 — 아마란스 발주등록을 열고 발주번호를 복사합니다(발주번호 칸에 Ctrl+V 후 조회)">발주등록 ↗</button>`;
 }
 /* ④ 칸 '(사업명) 현장명' · '단계' — 2026-11-06 사용자: "엑셀처럼 한줄이 좀 칸이 작았으면 … (사업명) 현장명 < 따로 선금 20% 인지 잔금 80% 인지, 100% 대금인지 이렇게만 구분해주고 제목은 일단 문서번호 위에 커서 올리면 아래 팝업처럼" */
+/* 제목 맨 앞 (사업명) — '(05월)' · '(카드지출)' 처럼 사업명이 아닌 괄호면 전산 프로젝트명. 끝의 '사업'은 떼서 맞춤('유통사업' → '유통') */
+function biz4(d){ const m = /^\s*(?:\[[^\]]*\]\s*)*\(([^)]*)\)/.exec(d.docTitle || ""); let b = m ? m[1].trim() : "";
+  if (!b || /^\d+\s*월$|카드|경조|법인|복리|교육|출장|통신|교통/.test(b)) b = String(d.pjtNm || "").trim();
+  return b.replace(/사업$/, "").trim(); }
 function bizSite(d){ const m = /^\s*(?:\[[^\]]*\]\s*)*(\([^)]*\))/.exec(d.docTitle || ""); const s = siteName(d); return ((m ? m[1] + " " : "") + (s || "")).trim(); }
 function stg4(d){ if (!d._pos.length && EXEMPT.test(d.docTitle)) return "경비"; if (d._stage === "대금" || d._pct === 100) return "대금 100%"; return d._stage + (d._pct != null ? " " + d._pct + "%" : ""); }
 /* ④ 칸 → 엑셀 열 글자 · 누가 쓰는 칸인지(2026-11-06 사용자: "M~N 그리고 P, R~T열은 우리가 작성 … J~L, O, Q 는 재무팀에서 직접 작성") */
@@ -1155,12 +1162,14 @@ function renderFund(){
      (뒤쪽 칸 출처는 아래 row 위 설명 — 처음엔 비워 뒀다가 2026-11-06 사용자 설명으로 채움)
      짧은 칸은 한 줄, 제목만 줄바꿈. 칸 이름 줄 · 합계 줄 · 앞 세 칸 고정. 문서번호를 누르면 결재문서 팝업 */
   const f = S.f.fund || (S.f.fund = { q: "", st: "", who: "" });
-  const COLS = ["구분", "프로젝트", "문서번호", "(사업명) 현장명", "단계", "거래처", "기안부서", "기안자", "금액 (VAT포함)", "기안일자", "기안서 기준 요청일", "송금 예정일", "완료여부", "기엽님 합의", "요청일자", "추가 의견", "지연일", "미지급 잔액", "비고", "은행", "계좌번호", "예금주"];
+  const COLS = ["구분", "프로젝트", "문서번호", "현장명", "단계", "거래처", "기안부서", "기안자", "금액 (VAT포함)", "기안일자", "기안서 기준 요청일", "송금 예정일", "완료여부", "기엽님 합의", "요청일자", "추가 의견", "지연일", "미지급 잔액", "비고", "은행", "계좌번호", "예금주"];
   const vend = (d) => { const t = (d._det || []).map(l => l.tr).find(Boolean); return t || d._vendor || vendorOf(d.docTitle) || ""; };
   const ymdS = (s) => { s = String(s || ""); return /^\d{8}$/.test(s) ? `${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6)}` : s; };
   let list = S.docs.filter(d => !d._gone && d.docNo && d.approState !== "-3" && d.approState !== "5" && String(d.upDate) >= "2026-01-01");
   const nRej = list.filter(d => d.approState === "4").length;
   if (f.st === "rej") list = list.filter(d => d.approState === "4"); else if (f.st === "ok") list = list.filter(d => d.approState !== "4");
+  const bizAll = [...new Set(list.map(biz4).filter(Boolean))].sort();
+  if (f.biz) list = list.filter(d => biz4(d) === f.biz);
   if (f.who) list = list.filter(d => d.empNm === f.who);
   const q = (f.q || "").trim().toLowerCase();
   if (q) list = list.filter(d => (d.docNo + " " + d.docTitle + " " + vend(d) + " " + d.empNm).toLowerCase().includes(q));
@@ -1183,17 +1192,18 @@ function renderFund(){
     const O = pick(e, "O", K ? String(dd(K, I)) : "");
     const pa = unpAuto(d, x, K), P = e.P ? e.P.t : (pa ? won(pa) : "-");
     return { x, e, I, K, O, P, pNum: e.P ? (+String(e.P.t).replace(/[^\d.-]/g, "") || 0) : pa,
-      v: [d.approState === "4" ? "반려" : "-", d.pjtNm || "", d.docNo, bizSite(d), stg4(d), vend(d), d.deptNm || "", d.empNm || "", won(d.docSumAm), String(d.upDate || ""), I,
+      v: [d.approState === "4" ? "반려" : "-", biz4(d), d.docNo, siteName(d) || "", stg4(d), vend(d), d.deptNm || "", d.empNm || "", won(d.docSumAm), String(d.upDate || ""), I,
         pick(e, "J", x.plan || ""), K, pick(e, "L", x.agree || ""), pick(e, "M", x.mreq || ""), pick(e, "N", x.note || ""), O, P, pick(e, "Q", x.memo || ""),
         pick(e, "R", ln.bk || x.bank || ""), pick(e, "S", x.acct || ""), pick(e, "T", ln.dp || x.holder || "")] }; };
   const unpaid = list.reduce((s, d) => s + cells(d).pNum, 0);
   const row = (d) => { const rej = d.approState === "4", c = cells(d);
     return `<tr class="${rej ? "rj" : ""}" data-no="${esc(d.docNo)}">` + c.v.map((x, k) => { const col = COL4[k], ed = !!WHO4[k], mine = ed && c.e[col];
-      return `<td class="${k === 15 || k === 18 ? "lg" : "nw"}${k === 8 || k === 16 || k === 17 ? " r" : ""}${k < 3 ? " fz fz" + k : ""}${ed ? " ed" : ""}${mine ? " site" : ""}"${ed ? ` data-c="${col}"` : ""}${mine ? ` title="${esc(c.e[col].by + " · " + c.e[col].at + " 사이트에서 적음")}"` : ""}>${k === 0 ? (rej ? '<span class="b red">반려</span>' : "-") : k === 2 ? `<a class="gwdoc" ${d.docId ? `href="${esc(eapUrlOf(d.docId, d.formId || 22, d.approKey))}" target="_blank" rel="noopener"` : ""} data-tip="${esc(d.docTitle)}">${esc(x)}</a>` : k === 4 && x ? `<span class="stg4 ${chipCls(d)}">${esc(x)}</span>` : esc(x)}</td>`; }).join("") + "</tr>"; };
+      return `<td class="${k === 15 || k === 18 ? "lg" : "nw"}${k === 3 ? " lf" : ""}${k === 8 || k === 16 || k === 17 ? " r" : ""}${k < 3 ? " fz fz" + k : ""}${ed ? " ed" : ""}${mine ? " site" : ""}"${ed ? ` data-c="${col}"` : ""}${mine ? ` title="${esc(c.e[col].by + " · " + c.e[col].at + " 사이트에서 적음")}"` : ""}>${k === 0 ? (rej ? '<span class="b red">반려</span>' : "-") : k === 2 ? `<a class="gwdoc" ${d.docId ? `href="${esc(eapUrlOf(d.docId, d.formId || 22, d.approKey))}" target="_blank" rel="noopener"` : ""} data-tip="${esc(d.docTitle)}">${esc(x)}</a>` : k === 4 && x ? `<span class="stg4 ${chipCls(d)}">${esc(x)}</span>` : esc(x)}</td>`; }).join("") + "</tr>"; };
   renderFund._row = row; renderFund._doc = new Map(list.map(d => [d.docNo, d]));
   const shown = list.slice(0, f.lim || 500);
   $("#v-fund").innerHTML = `<div class="bar fund-bar"><b>지출결의서 기준 송금 현황</b><span class="cnt">그룹웨어 지출결의현황 · 기안자 4명 · 2026-01-01 ~ 오늘 · 엑셀 '지출-지출결의서 기준_26Y' 칸 순서</span>
       <div class="seg" id="fSt">${[["", "전체"], ["ok", "-"], ["rej", "반려 " + nRej]].map(([k, n]) => `<button data-v="${k}" class="${(f.st || "") === k ? "on" : ""}">${n}</button>`).join("")}</div>
+      <select id="fBiz"><option value="">프로젝트 전체</option>${bizAll.map(b => `<option ${f.biz === b ? "selected" : ""}>${esc(b)}</option>`).join("")}</select>
       <select id="fWho">${whoOpts(f.who)}</select>
       <input type="search" id="fQ" placeholder="찾기 (문서번호 · 제목 · 거래처 …)" value="${esc(f.q)}">
       <span class="cnt">${list.length.toLocaleString()}건 · ${won(sum)}원</span></div>
@@ -1207,6 +1217,7 @@ function renderFund(){
     t.querySelectorAll("thead tr.tot th").forEach(x => x.style.top = r1.offsetHeight + "px"); }catch(e){} });
   $$("#fSt button").forEach(b => b.onclick = () => { f.st = b.dataset.v; f.lim = 0; renderFund(); });
   $("#fWho").onchange = (e) => { f.who = e.target.value; f.lim = 0; renderFund(); };
+  $("#fBiz").onchange = (e) => { f.biz = e.target.value; f.lim = 0; renderFund(); };
   $("#v-fund tbody").onclick = (e) => { const td = e.target.closest("td.ed"); if (td && !td.querySelector("input")) edit4(td); };
   if ($("#fMore")) $("#fMore").onclick = () => { f.lim = (f.lim || 500) + 1000; renderFund(); };
   $("#fQ").oninput = (e) => { f.q = e.target.value; f.lim = 0; clearTimeout(renderFund._t); renderFund._t = setTimeout(() => { renderFund(); const i = $("#fQ"); i.focus(); i.setSelectionRange(i.value.length, i.value.length); }, 250); };
