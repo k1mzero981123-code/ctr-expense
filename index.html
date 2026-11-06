@@ -410,7 +410,7 @@ td .cut{display:inline-block;margin-top:3px;padding:1px 7px;border-radius:999px;
 <div id="toast" class="hidden"></div>
 <script>
 "use strict";
-const BUILD = "20261106.160746";   /* 배포할 때 scripts/deploy.js 가 판 번호로 바꾼다 */
+const BUILD = "20261106.162206";   /* 배포할 때 scripts/deploy.js 가 판 번호로 바꾼다 */
 const $ = (s, el) => (el || document).querySelector(s), $$ = (s, el) => [...(el || document).querySelectorAll(s)];
 const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const won = (n) => n == null || n === "" ? "" : Math.round(+n).toLocaleString("ko-KR");
@@ -1315,7 +1315,8 @@ function poDetailHtml(n, p, c, docs){
           ${rc.length ? rc.map(rcvRow).join("") + (rc.length > 1 ? `<tr class="rc tot"><td></td><td colspan="2">입고 합계${rq < l.qt ? " · 일부" : ""}</td><td class="r">${won(rq)}</td><td></td><td></td><td class="r">${won(rc.reduce((s, x) => s + (+x.sup || 0), 0))}</td><td class="r"><b class="blu">${won(rs)}</b></td></tr>` : "")
             : `<tr class="rc none"><td><span class="lt-tag none">입고</span></td><td colspan="7">입고 전 (계산서 없음)</td></tr>`}`; };
   const siteCard = (ls) => {
-      const site = String(ls[0].rem || "").replace(/^s*([^)]*)s*/, "");
+      /* 2026-11-06 사용자: (') 가흥혜숙 태양광발전소' 로 잘려 나온 캡처) "가지고 올거면 확실하게 다 가져와. 왜 저렇게 어중간하게 들고오는거야 100% 맞춰놔" → 발주 품목 줄 비고를 손대지 않고 그대로 */
+      const site = String(ls[0].rem || "").trim();
       return `<div class="pd-card ln">
         <div class="r1"><b>${esc(site || "(현장 비고 없음)")}</b><span class="site">품목 ${ls.length}줄</span></div>
         <table class="lt"><colgroup><col style="width:48px"><col style="width:50px"><col><col style="width:52px"><col style="width:76px"><col style="width:96px"><col style="width:96px"><col style="width:102px"></colgroup>
@@ -1358,7 +1359,7 @@ function poDetailHtml(n, p, c, docs){
     }
     const rows = sites.map(sk => {
       const ls = p.lines.filter(l => (lineSite(l) || "-") === sk), ds = docOf(sk).concat(splits.get(sk) || []); ds.forEach(d => used.add(d));
-      const nm = String(ls[0].rem || "").replace(/^\s*\([^)]*\)\s*/, "") || "(현장 비고 없음)";
+      const nm = String(ls[0].rem || "").trim() || "(현장 비고 없음)";   /* 비고 그대로(2026-11-06 "100% 맞춰놔") */
       const sum = ls.reduce((s, l) => s + (+l.sum || 0), 0), paidS = ds.filter(d => d._live).reduce((s, d) => s + (+d.docSumAm || 0), 0);
       return `<div class="ps-row"><div class="ps-h"><b>${esc(nm)}</b><span>발주 ${won(sum)}</span><span>지출결의 ${won(paidS)} (${ds.length}건)</span><span class="${paidS - sum > tolOf(sum) ? "neg" : ""}">남은 ${won(sum - paidS)}</span></div>
         <div class="pd-body"><div class="pd-col">${siteCard(ls)}</div><div class="pd-col">${two(ds)}</div></div></div>`;
