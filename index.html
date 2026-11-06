@@ -302,6 +302,21 @@ td.rcvc .amt{color:#1d4f9c}
 /* 상세 창 발주번호 옆 '아마란스 발주등록' 단추(2026-11-06) */
 .gwbtn{margin-left:8px;border:1px solid var(--g);background:#fff;color:var(--g-d);border-radius:999px;padding:1px 9px;font:inherit;font-size:11.5px;font-weight:700;cursor:pointer;white-space:nowrap;vertical-align:1px}.gwbtn:hover{background:var(--g-bg)}
 /* 타일 필터(2026-11-06) — 누른 타일은 진한 테두리 */
+/* 발주 품목 카드 — 발주/입고 칸 맞춘 작은 표(2026-11-06) */
+.pd-card.ln .lt{width:100%;table-layout:fixed;border-collapse:collapse;margin-top:6px;font-size:12.5px}
+.pd-card.ln .lt th{font-size:11px;font-weight:500;color:var(--ink-2);text-align:left;padding:3px 6px;border-bottom:1px solid var(--line-2);background:#fafbfa}
+.pd-card.ln .lt td{padding:5px 6px;border-bottom:1px dashed var(--line-2);white-space:nowrap}
+.pd-card.ln .lt tr:last-child td{border-bottom:0}
+.pd-card.ln .lt .r{text-align:right;font-variant-numeric:tabular-nums}
+.pd-card.ln .lt td.dim{color:#b5bdb8}
+.pd-card.ln .lt tr.rc td{background:#f6f9ff}
+.pd-card.ln .lt tr.rc.none td{background:none;color:#a3aca7}
+.pd-card.ln .lt tr.tot td{font-weight:700}
+.pd-card.ln .lt .dif{font-size:10.5px;font-weight:700}
+.lt-tag{display:inline-block;border-radius:6px;padding:1px 7px;font-size:11px;font-weight:700;background:#eef1f0;color:var(--ink-2)}
+.lt-tag.rc{background:#e7f0ff;color:#1d4f9c} .lt-tag.none{background:#f3f4f4;color:#a3aca7}
+@media (max-width:1100px){ .pd-card.ln .lt td{white-space:normal} }
+.gwdoc{color:#1d4f9c;text-decoration:none;font-weight:700;border-bottom:1px dashed #9db6dc} .gwdoc:hover{border-bottom-style:solid}
 #v-main .tiles .tile.act{box-shadow:0 0 0 2px var(--g) inset,var(--sh)}
 .tfx{border:1px solid var(--g);background:var(--g-bg);color:var(--g-d);border-radius:999px;padding:4px 12px;font:inherit;font-size:12.5px;font-weight:700;cursor:pointer;white-space:nowrap}
 .tw.np{margin-bottom:10px;max-height:none} .tw.np td.wrap{white-space:normal;word-break:keep-all;overflow-wrap:anywhere}
@@ -357,7 +372,7 @@ td .cut{display:inline-block;margin-top:3px;padding:1px 7px;border-radius:999px;
 <div id="toast" class="hidden"></div>
 <script>
 "use strict";
-const BUILD = "20261106.133927";   /* 배포할 때 scripts/deploy.js 가 판 번호로 바꾼다 */
+const BUILD = "20261106.134838";   /* 배포할 때 scripts/deploy.js 가 판 번호로 바꾼다 */
 const $ = (s, el) => (el || document).querySelector(s), $$ = (s, el) => [...(el || document).querySelectorAll(s)];
 const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const won = (n) => n == null || n === "" ? "" : Math.round(+n).toLocaleString("ko-KR");
@@ -1184,19 +1199,28 @@ function poDetailHtml(n, p, c, docs){
     : `<div class="iss">이 발주번호는 수집한 발주 목록(4명 · 올해)에 없습니다.</div>`;
   const iss = c ? `<div class="iss">${c.iss.map(i => `• <b>${KIND[i.k][0]}</b> — ${esc(i.t)}`).join("<br>")}</div>` : `<div class="iss okk">점검 기준에 걸린 것이 없습니다.</div>`;
   /* 왼쪽 — 발주 품목: 품목·규격 한 칸, 수량·단가·합계, 입고(계산서) */
+  /* 아마란스 결재문서 바로 열기 — 2026-11-06 사용자: "지출결의서 문서번호도 그렇게". 수집이 이미 쓰는 결재문서 보기 주소(docID · formId, 지출결의는 formId 22) */
+  const eapUrl = (d) => `https://gw.ctrenergy.co.kr/#/popup?MicroModuleCode=eap&docAuth=0&docID=${encodeURIComponent(d.docId)}&formId=${encodeURIComponent(d.formId || 22)}&pageCode=UBA1060&callComp=UBAP002${d.approKey ? "&approkey=" + encodeURIComponent(d.approKey) : ""}`;
   const lineCard = (l) => {
       const rc = l._rcv || [], rq = rc.reduce((s, x) => s + (+x.qt || 0), 0), rs = rc.reduce((s, x) => s + (+x.sum || 0), 0), um = rc.length ? +rc[rc.length - 1].um : null, diff = um != null && Math.abs(um - l.um) > 0.5;
       const site = String(l.rem || "").replace(/^\s*\([^)]*\)\s*/, "");
-      return `<div class="pd-card">
+      /* 2026-11-06 사용자: "이 부분이 너무 보기가 어렵고 가독성이 안좋은 것 같애 … 깔끔하고 한눈에" → 발주 줄 · 입고 줄을 칸 맞춘 작은 표로(같은 칸끼리 위아래로 비교). 입고가 여러 번이면 입고마다 한 줄 */
+      const rcvRow = (x) => { const u = +x.um, du = u - l.um, dif = Math.abs(du) > 0.5;
+        return `<tr class="rc"><td><span class="lt-tag rc">입고</span></td><td>${ymd(x.dt).slice(5)}</td><td class="mono">${esc(x.rv)}</td><td class="r">${won(x.qt)}</td>
+          <td class="r ${dif ? "neg" : ""}">${won(u)}${dif ? ` <small class="dif">${du < 0 ? "▼" : "▲"}${won(Math.abs(du))}</small>` : ""}</td><td class="r"><b class="blu">${won(x.sum)}</b></td></tr>`; };
+      return `<div class="pd-card ln">
         <div class="r1"><span class="sq">${l.sq}</span><b ${T(l.nm + " / " + l.dc)}>${esc(l.dc || l.nm)}</b><span class="site" ${T(l.rem)}>${esc(site)}</span></div>
-        <div class="r2"><span><i>수량</i>${won(l.qt)}</span><span><i>단가</i>${won(l.um)}</span><span><i>합계</i><b>${won(l.sum)}</b></span><span><i>납기</i>${ymd(l.due).slice(5) || "-"}</span></div>
-        <div class="r3 ${rc.length ? "" : "none"}">${rc.length ? `<span class="tag">입고 ${ymd(rc[rc.length - 1].dt).slice(5)}${rq < l.qt ? " · 일부" : ""}</span><span><i>입고번호</i>${esc([...new Set(rc.map(x => x.rv))].join(", "))}</span><span><i>수량</i>${won(rq)}</span><span class="${diff ? "neg" : ""}"><i>단가</i>${won(um)}${diff ? ` <small>(발주 ${won(l.um)})</small>` : ""}</span><span><i>합계</i><b class="blu">${won(rs)}</b></span>` : "입고 전 (계산서 없음)"}</div></div>`; };
+        <table class="lt"><colgroup><col style="width:52px"><col style="width:66px"><col style="width:118px"><col style="width:70px"><col><col style="width:110px"></colgroup>
+          <thead><tr><th></th><th>날짜</th><th>번호</th><th class="r">수량</th><th class="r">단가</th><th class="r">합계</th></tr></thead>
+          <tbody><tr><td><span class="lt-tag">발주</span></td><td>납기 ${ymd(l.due).slice(5) || "-"}</td><td class="dim">—</td><td class="r">${won(l.qt)}</td><td class="r">${won(l.um)}</td><td class="r"><b>${won(l.sum)}</b></td></tr>
+          ${rc.length ? rc.map(rcvRow).join("") + (rc.length > 1 ? `<tr class="rc tot"><td></td><td colspan="2">입고 합계${rq < l.qt ? " · 일부" : ""}</td><td class="r">${won(rq)}</td><td></td><td class="r"><b class="blu">${won(rs)}</b></td></tr>` : "")
+            : `<tr class="rc none"><td><span class="lt-tag none">입고</span></td><td colspan="5">입고 전 (계산서 없음)</td></tr>`}</tbody></table></div>`; };
   const left = p ? `<div class="pd-col"><h4>발주 품목 <small>${p.lines.length}줄</small></h4>${p.lines.map(lineCard).join("")}</div>` : "";
   /* 오른쪽 — 지출결의: 선금 / 잔금(잔금·100%·중도금·차액) 나눠서 카드 */
   const card = (d) => { const ks = [...new Set(d._iss)];
     return `<div class="pd-card doc ${d._live ? "" : "dim"}">
       <div class="r1"><span class="stg ${chipCls(d)}">${esc(stageLbl(d))}</span><b class="mono amt">${won(d.docSumAm)}</b>${stB(d)}${ks.slice(0, 2).map(k => `<span class="b ${KIND[k][1]}">${KIND[k][0]}</span>`).join("")}</div>
-      <div class="r2"><span><i>문서번호</i>${esc(shortNo(d))}</span><span><i>기안</i>${esc(d.empNm)} ${esc(String(d.upDate).slice(5))}</span><span><i>지급요청</i>${ymd(d.payDt).slice(5) || "-"}</span>${(d._det || []).filter(l => !DET_MAT.test(l.t)).map(l => `<span class="acct"><i>계정</i>${esc(l.t.replace(/^\[[^\]]*\]\s*/, ""))} ${won(l.sum)}</span>`).join("")}${d.approState === "0" && d.nextEmpNm ? `<span><i>다음</i>${esc(d.nextEmpNm)}</span>` : ""}</div>
+      <div class="r2"><span><i>문서번호</i>${d.docId ? `<a class="gwdoc" href="${esc(eapUrl(d))}" target="_blank" rel="noopener" title="아마란스에서 이 지출결의서 열기">${esc(shortNo(d))} ↗</a>` : esc(shortNo(d))}</span><span><i>기안</i>${esc(d.empNm)} ${esc(String(d.upDate).slice(5))}</span><span><i>지급요청</i>${ymd(d.payDt).slice(5) || "-"}</span>${(d._det || []).filter(l => !DET_MAT.test(l.t)).map(l => `<span class="acct"><i>계정</i>${esc(l.t.replace(/^\[[^\]]*\]\s*/, ""))} ${won(l.sum)}</span>`).join("")}${d.approState === "0" && d.nextEmpNm ? `<span><i>다음</i>${esc(d.nextEmpNm)}</span>` : ""}</div>
       <div class="r3 t" ${T(d.docTitle)}>${esc(d.docTitle)}</div>${fixNote(d, n)}</div>`; };
   const pre = docs.filter(SLOT1), post = docs.filter(d => !SLOT1(d));
   const right = `<div class="pd-col"><h4>지출결의 <small>${docs.length}건 · 흐린 카드는 반려·삭제·미상신(합계 제외)</small></h4>
