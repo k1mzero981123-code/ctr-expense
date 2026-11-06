@@ -356,7 +356,12 @@ td.rcvc .amt{color:#1d4f9c}
 .fundt tr.xh td{color:#9aa49f}
 .fundt .fz{position:sticky;z-index:2;background:#fff} .fundt thead .fz{z-index:4;background:#f4f6f5} .fundt thead tr.tot .fz{background:#fbfcfb}
 .fundt .fz0{left:0} .fundt .fz1{left:var(--fz1,48px)} .fundt .fz2{left:var(--fz2,120px);box-shadow:1px 0 0 var(--line)}
-.fundt tr.rj td{background:#fff6f5}
+/* 2026-11-06 사용자: "4번 탭에 반려문서는 옅은 그레이 형광색으로 그 행을 칠해주고 글자색도 옅은색으로" → 반려 줄 전체(고정 칸 포함) 옅은 회색 바탕 + 옅은 글자. 링크 · 반려 칩 · 사이트에서 적은 파란 글씨도 옅게 */
+.fundt tr.rj td,.fundt tr.rj td.fz{background:#eceeed!important;color:#a4aba7!important}
+.fundt tr.rj td a.gwdoc,.fundt tr.rj td.ed.site{color:#9aa3c0!important;border-bottom-color:#c5ccdc!important}
+.fundt tr.rj td .b.red{background:#e2e5e3;color:#8f9792}
+.fundt tr.rj td .stg4{opacity:.55}
+.fundt tbody tr.rj:hover td{background:#e5e8e6!important}
 .fundw .more{text-align:center;padding:10px} .fundw .more button{border:1px solid var(--line);background:#fff;border-radius:8px;padding:6px 16px;cursor:pointer;font:inherit}
 a.gwbtn.gwdoc{display:inline-block;text-decoration:none;border:1px solid var(--g);border-bottom:1px solid var(--g);color:var(--g-d)}
 .gwdoc{color:#1d4f9c;text-decoration:none;font-weight:700;border-bottom:1px dashed #9db6dc} .gwdoc:hover{border-bottom-style:solid}
@@ -418,7 +423,7 @@ td .cut{display:inline-block;margin-top:3px;padding:1px 7px;border-radius:999px;
 <div id="toast" class="hidden"></div>
 <script>
 "use strict";
-const BUILD = "20261106.165158";   /* 배포할 때 scripts/deploy.js 가 판 번호로 바꾼다 */
+const BUILD = "20261106.165318";   /* 배포할 때 scripts/deploy.js 가 판 번호로 바꾼다 */
 const $ = (s, el) => (el || document).querySelector(s), $$ = (s, el) => [...(el || document).querySelectorAll(s)];
 const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const won = (n) => n == null || n === "" ? "" : Math.round(+n).toLocaleString("ko-KR");
