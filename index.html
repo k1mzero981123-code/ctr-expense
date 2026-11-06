@@ -319,6 +319,10 @@ td.rcvc .amt{color:#1d4f9c}
 .pd-card.ln .lt tr.rc.none td{background:none;color:#a3aca7}
 .pd-card.ln .lt tr.tot td{font-weight:700}
 .pd-card.ln .lt td.none{color:#a3aca7}
+.pd-card.ln .lt tr.it td{background:#fafbfa;border-top:1px solid var(--line-2);padding-top:7px;text-align:left!important;white-space:normal}
+.pd-card.ln .lt tr.it:first-child td{border-top:0}
+.pd-card.ln .lt tr.it .sq{display:inline-flex;width:18px;height:18px;border-radius:5px;background:#eef1f0;color:var(--ink-2);font-size:10.5px;align-items:center;justify-content:center;margin-right:6px;vertical-align:1px}
+.pd-card.ln .lt tr.it b{font-size:12.5px} .pd-card.ln .lt tr.it .spec{margin-left:8px;color:var(--ink-2);font-size:12px}
 /* 2026-11-06 사용자: "이 내용들은 가운데 정렬로 무조건 맞춰줘" → 품목 표 머리줄 · 칸 모두 가운데(숫자 칸 포함). 입고 전 줄만 왼쪽 */
 .pd-card.ln .lt th,.pd-card.ln .lt td,.pd-card.ln .lt .r{text-align:center!important}
 .pd-card.ln .lt tr.rc.none td[colspan]{text-align:left!important}
@@ -406,7 +410,7 @@ td .cut{display:inline-block;margin-top:3px;padding:1px 7px;border-radius:999px;
 <div id="toast" class="hidden"></div>
 <script>
 "use strict";
-const BUILD = "20261106.160003";   /* 배포할 때 scripts/deploy.js 가 판 번호로 바꾼다 */
+const BUILD = "20261106.160746";   /* 배포할 때 scripts/deploy.js 가 판 번호로 바꾼다 */
 const $ = (s, el) => (el || document).querySelector(s), $$ = (s, el) => [...(el || document).querySelectorAll(s)];
 const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const won = (n) => n == null || n === "" ? "" : Math.round(+n).toLocaleString("ko-KR");
@@ -1296,22 +1300,29 @@ function poDetailHtml(n, p, c, docs){
   /* 왼쪽 — 발주 품목: 품목·규격 한 칸, 수량·단가·합계, 입고(계산서) */
   /* 아마란스 결재문서 바로 열기 — 2026-11-06 사용자: "지출결의서 문서번호도 그렇게". 수집이 이미 쓰는 결재문서 보기 주소(docID · formId, 지출결의는 formId 22) */
   const eapUrl = (d) => eapUrlOf(d.docId, d.formId, d.approKey);
-  const lineCard = (l) => {
-      const rc = l._rcv || [], rq = rc.reduce((s, x) => s + (+x.qt || 0), 0), rs = rc.reduce((s, x) => s + (+x.sum || 0), 0), um = rc.length ? +rc[rc.length - 1].um : null, diff = um != null && Math.abs(um - l.um) > 0.5;
-      const site = String(l.rem || "").replace(/^\s*\([^)]*\)\s*/, "");
-      /* 2026-11-06 사용자: "이 부분이 너무 보기가 어렵고 가독성이 안좋은 것 같애 … 깔끔하고 한눈에" → 발주 줄 · 입고 줄을 칸 맞춘 작은 표로(같은 칸끼리 위아래로 비교). 입고가 여러 번이면 입고마다 한 줄 */
+  /* 품목 표 — 2026-11-06 사용자: "이 부분이 너무 보기가 어렵고 … 한눈에" → 발주 줄 · 입고 줄을 칸 맞춘 작은 표.
+     2026-11-06 사용자: (2번 줄이 '125kw' 로만 나온 캡처) "품목이 다른데 저렇게 표기된 이유가 뭐야? 그리고 현장명이 다르지 않은데 왜 저걸 찢어둔거야?"
+     → 품목 이름 자리에 규격만 보이던 것 → **품명 + 규격** 같이. 품목 줄마다 카드를 따로 만들던 것 → **같은 현장은 카드 하나**, 그 안에서 품목마다 품목 이름 줄 + 발주 줄 + 입고 줄 */
+  const lineRows = (l) => {
+      const rc = l._rcv || [], rq = rc.reduce((s, x) => s + (+x.qt || 0), 0), rs = rc.reduce((s, x) => s + (+x.sum || 0), 0);
       const chgX = rc.filter(x => Math.abs(+x.um - l.um) > 0.5).pop(), chg = chgX ? +chgX.um : 0;
-      const rcvRow = (x) => { const u = +x.um, du = u - l.um, dif = Math.abs(du) > 0.5;
+      const rcvRow = (x) => { const u = +x.um, dif = Math.abs(u - l.um) > 0.5;
         return `<tr class="rc"><td><span class="lt-tag rc">입고</span></td><td>${ymd(x.dt).slice(5)}</td><td class="mono">${esc(x.rv)}</td><td class="r">${won(x.qt)}</td>
           <td class="r">${won(l.um)}</td><td class="r ${dif ? "neg" : "none"}">${dif ? won(u) : "없음"}</td><td class="r">${won(x.sup)}</td><td class="r"><b class="blu">${won(x.sum)}</b></td></tr>`; };
-      return `<div class="pd-card ln">
-        <div class="r1"><span class="sq">${l.sq}</span><b ${T(l.nm + " / " + l.dc)}>${esc(l.dc || l.nm)}</b><span class="site" ${T(l.rem)}>${esc(site)}</span></div>
-        <table class="lt"><colgroup><col style="width:48px"><col style="width:50px"><col><col style="width:52px"><col style="width:76px"><col style="width:112px"><col style="width:96px"><col style="width:102px"></colgroup>
-          <thead><tr><th></th><th>날짜</th><th>번호</th><th class="r">수량</th><th class="r">단가</th><th class="r">변경단가</th><th class="r">공급가액</th><th class="r">합계액</th></tr></thead>
-          <tbody><tr><td><span class="lt-tag">발주</span></td><td>${ymd(p.poDt).slice(5)}</td><td class="mono">${esc(n)}</td><td class="r">${won(l.qt)}</td><td class="r">${won(l.um)}</td><td class="r ${chg ? "neg" : "none"}">${chg ? won(chg) : "없음"}</td><td class="r">${won(l.sup)}</td><td class="r"><b>${won(l.sum)}</b></td></tr>
+      const nm = String(l.nm || "").trim(), dc = String(l.dc || "").trim();
+      return `<tr class="it"><td colspan="8"><span class="sq">${l.sq}</span><b>${esc(nm || dc)}</b>${nm && dc && dc !== nm ? `<span class="spec">${esc(dc)}</span>` : ""}</td></tr>
+          <tr><td><span class="lt-tag">발주</span></td><td>${ymd(p.poDt).slice(5)}</td><td class="mono">${esc(n)}</td><td class="r">${won(l.qt)}</td><td class="r">${won(l.um)}</td><td class="r ${chg ? "neg" : "none"}">${chg ? won(chg) : "없음"}</td><td class="r">${won(l.sup)}</td><td class="r"><b>${won(l.sum)}</b></td></tr>
           ${rc.length ? rc.map(rcvRow).join("") + (rc.length > 1 ? `<tr class="rc tot"><td></td><td colspan="2">입고 합계${rq < l.qt ? " · 일부" : ""}</td><td class="r">${won(rq)}</td><td></td><td></td><td class="r">${won(rc.reduce((s, x) => s + (+x.sup || 0), 0))}</td><td class="r"><b class="blu">${won(rs)}</b></td></tr>` : "")
-            : `<tr class="rc none"><td><span class="lt-tag none">입고</span></td><td colspan="7">입고 전 (계산서 없음)</td></tr>`}</tbody></table></div>`; };
-  const left = p ? `<div class="pd-col"><h4>발주 품목 <small>${p.lines.length}줄</small></h4>${p.lines.map(lineCard).join("")}</div>` : "";
+            : `<tr class="rc none"><td><span class="lt-tag none">입고</span></td><td colspan="7">입고 전 (계산서 없음)</td></tr>`}`; };
+  const siteCard = (ls) => {
+      const site = String(ls[0].rem || "").replace(/^s*([^)]*)s*/, "");
+      return `<div class="pd-card ln">
+        <div class="r1"><b>${esc(site || "(현장 비고 없음)")}</b><span class="site">품목 ${ls.length}줄</span></div>
+        <table class="lt"><colgroup><col style="width:48px"><col style="width:50px"><col><col style="width:52px"><col style="width:76px"><col style="width:96px"><col style="width:96px"><col style="width:102px"></colgroup>
+          <thead><tr><th></th><th>날짜</th><th>번호</th><th class="r">수량</th><th class="r">단가</th><th class="r">변경단가</th><th class="r">공급가액</th><th class="r">합계액</th></tr></thead>
+          <tbody>${ls.map(lineRows).join("")}</tbody></table></div>`; };
+  const bySite = (ls) => { const g = new Map(); for (const l of ls){ const k = lineSite(l) || "-"; if (!g.has(k)) g.set(k, []); g.get(k).push(l); } return [...g.values()]; };
+  const left = p ? `<div class="pd-col"><h4>발주 품목 <small>${p.lines.length}줄</small></h4>${bySite(p.lines).map(siteCard).join("")}</div>` : "";
   /* 오른쪽 — 지출결의: 선금 / 잔금(잔금·100%·중도금·차액) 나눠서 카드 */
   const card = (d) => { const ks = [...new Set(d._iss)];
     return `<div class="pd-card doc ${d._live ? "" : "dim"}">
@@ -1350,7 +1361,7 @@ function poDetailHtml(n, p, c, docs){
       const nm = String(ls[0].rem || "").replace(/^\s*\([^)]*\)\s*/, "") || "(현장 비고 없음)";
       const sum = ls.reduce((s, l) => s + (+l.sum || 0), 0), paidS = ds.filter(d => d._live).reduce((s, d) => s + (+d.docSumAm || 0), 0);
       return `<div class="ps-row"><div class="ps-h"><b>${esc(nm)}</b><span>발주 ${won(sum)}</span><span>지출결의 ${won(paidS)} (${ds.length}건)</span><span class="${paidS - sum > tolOf(sum) ? "neg" : ""}">남은 ${won(sum - paidS)}</span></div>
-        <div class="pd-body"><div class="pd-col">${ls.map(lineCard).join("")}</div><div class="pd-col">${two(ds)}</div></div></div>`;
+        <div class="pd-body"><div class="pd-col">${siteCard(ls)}</div><div class="pd-col">${two(ds)}</div></div></div>`;
     });
     const rest = docs.filter(d => !used.has(d));
     if (rest.length) rows.push(`<div class="ps-row"><div class="ps-h"><b>현장 구분 안 됨</b><span>제목의 현장을 품목 줄에서 못 찾았거나 여러 현장을 한 번에 쓴 지출결의 ${rest.length}건</span></div><div class="pd-col">${two(rest)}</div></div>`);
