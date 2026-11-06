@@ -368,7 +368,7 @@ td.rcvc .amt{color:#1d4f9c}
 /* 2026-11-06 사용자: "4번 탭에 반려문서는 옅은 그레이 형광색으로 그 행을 칠해주고 글자색도 옅은색으로" → 반려 줄 전체(고정 칸 포함) 옅은 회색 바탕 + 옅은 글자. 링크 · 반려 칩 · 사이트에서 적은 파란 글씨도 옅게 */
 .fundt tr.rj td,.fundt tr.rj td.fz{background:#eceeed!important;color:#a4aba7!important}
 .fundt tr.rj td a.gwdoc,.fundt tr.rj td.ed.site{color:#9aa3c0!important;border-bottom-color:#c5ccdc!important}
-.fundt tr.rj td .b.red{background:#e2e5e3;color:#8f9792}
+.fundt tr.rj td .b.red{background:var(--r-bg,#fde8e7)!important;color:#c2403b!important;opacity:1} .fundt tr.rj td .b.gray{background:#dfe2e0;color:#7d8681}
 .fundt tr.rj td .stg4{opacity:.55}
 .fundt tbody tr.rj:hover td{background:#e5e8e6!important}
 .fundw .more{text-align:center;padding:10px} .fundw .more button{border:1px solid var(--line);background:#fff;border-radius:8px;padding:6px 16px;cursor:pointer;font:inherit}
@@ -432,7 +432,7 @@ td .cut{display:inline-block;margin-top:3px;padding:1px 7px;border-radius:999px;
 <div id="toast" class="hidden"></div>
 <script>
 "use strict";
-const BUILD = "20261106.171128";   /* 배포할 때 scripts/deploy.js 가 판 번호로 바꾼다 */
+const BUILD = "20261106.171923";   /* 배포할 때 scripts/deploy.js 가 판 번호로 바꾼다 */
 const $ = (s, el) => (el || document).querySelector(s), $$ = (s, el) => [...(el || document).querySelectorAll(s)];
 const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const won = (n) => n == null || n === "" ? "" : Math.round(+n).toLocaleString("ko-KR");
@@ -1202,6 +1202,9 @@ function cfOpen(btn, k){
   const r = btn.getBoundingClientRect(); pop.style.left = Math.max(8, Math.min(r.left - 10, innerWidth - 280)) + "px"; pop.style.top = Math.min(r.bottom + 4, innerHeight - pop.offsetHeight - 8) + "px";
   setTimeout(() => { const off = (e) => { if (!pop.isConnected){ document.removeEventListener("mousedown", off); return; } if (!pop.contains(e.target)){ pop.remove(); document.removeEventListener("mousedown", off); } }; document.addEventListener("mousedown", off); }, 0);
 }
+/* ④ 구분: 반려 / 제외대상(제목 맨 앞 (카드지출)) / - */
+const card4 = (d) => /^\s*(?:\[[^\]]*\]\s*)*\(\s*카드\s*지출\s*\)/.test(d.docTitle || "");
+const gb4 = (d) => d.approState === "4" ? "반려" : card4(d) ? "제외대상" : "-";
 function renderFund(){
   /* ④ 송금 현황 — 2026-11-06 사용자: "이 엑셀을 결국 우리는 계속 사용을 해야되는거거든 … 엑셀을 그대로 너한테 넣으라고 하니까 너가 지금 좀 헷갈리는 것 같애.
      회계처리에서 내가 지출결의서 볼 수 있는 내역 … 26년 1월 1일부터 지금까지 내역을 이 엑셀 시트에 맞게끔 내역을 들고와주고, 맨 앞에 열에는 반려 / - 이렇게 구분 … 일단 엑셀 데이터는 지우자".
@@ -1215,8 +1218,8 @@ function renderFund(){
   /* 엑셀처럼 경비 문서까지 전부 — 점검(judge)은 원재료·상품 지출결의만 다뤄서 S.docs 에는 경비 등이 빠져 있음(2026-11-06 확인: 2,562건 중 489건) → 수집한 지출결의 전체에서, 빠진 칸만 제목으로 채움 */
   let list = S.data.docs.filter(d => !d._gone && d.docNo && d.approState !== "-3" && d.approState !== "5" && String(d.upDate) >= "2026-01-01");
   for (const d of list) if (d._stage === undefined){ d._titlePos = poOf(d.docTitle); d._fix = fixOf(d); d._pos = d._fix ? d._fix.pos : d._titlePos; d._stage = stageOf(d.docTitle); d._pct = pctOf(d.docTitle); d._vendor = vendorOf(d.docTitle); d._sites = d._sites || []; d._iss = d._iss || []; }
-  const nRej = list.filter(d => d.approState === "4").length;
-  if (f.st === "rej") list = list.filter(d => d.approState === "4"); else if (f.st === "ok") list = list.filter(d => d.approState !== "4");
+  const nRej = list.filter(d => gb4(d) === "반려").length, nEx = list.filter(d => gb4(d) === "제외대상").length;
+  if (f.st === "rej") list = list.filter(d => gb4(d) === "반려"); else if (f.st === "ex") list = list.filter(d => gb4(d) === "제외대상"); else if (f.st === "ok") list = list.filter(d => gb4(d) === "-");
   const bizAll = [...new Set(list.map(biz4).filter(Boolean))].sort();
   if (f.biz) list = list.filter(d => biz4(d) === f.biz);
   if (f.who) list = list.filter(d => d.empNm === f.who);
@@ -1241,7 +1244,7 @@ function renderFund(){
     const O = pick(e, "O", K ? String(dd(K, I)) : "");
     const pa = unpAuto(d, x, K), P = e.P ? e.P.t : (pa ? won(pa) : "-");
     return { x, e, I, K, O, P, pNum: e.P ? (+String(e.P.t).replace(/[^\d.-]/g, "") || 0) : pa,
-      v: [d.approState === "4" ? "반려" : "-", biz4(d), d.docNo, siteName(d) || "", stg4(d), vend(d), d.deptNm || "", d.empNm || "", won(d.docSumAm), String(d.upDate || ""), I,
+      v: [gb4(d), biz4(d), d.docNo, siteName(d) || "", stg4(d), vend(d), d.deptNm || "", d.empNm || "", won(d.docSumAm), String(d.upDate || ""), I,
         pick(e, "J", x.plan || ""), K, pick(e, "L", x.agree || ""), pick(e, "M", x.mreq || ""), pick(e, "N", x.note || ""), O, P, pick(e, "Q", x.memo || ""),
         pick(e, "R", ln.bk || x.bank || ""), pick(e, "S", x.acct || ""), pick(e, "T", ln.dp || x.holder || "")] }; };
   /* 칸마다 필터(엑셀 자동 필터처럼) — 2026-11-06 사용자: "필터를 좀 걸 수 있게 해달라니까?" → 칸 이름 옆 ▾: 그 칸 값 목록 체크 · 검색. f.cf = { 칸번호: [고른 값…] } */
@@ -1250,13 +1253,13 @@ function renderFund(){
   renderFund._pre = list; renderFund._cells = cells; renderFund._val = val4;
   if (cfKeys.length){ list = list.filter(d => { const v = cells(d).v; return cfKeys.every(k => cf[k].includes(val4(v, +k))); }); sum = list.reduce((s, d) => s + (+d.docSumAm || 0), 0); }
   const unpaid = list.reduce((s, d) => s + cells(d).pNum, 0);
-  const row = (d) => { const rej = d.approState === "4", c = cells(d);
+  const row = (d) => { const g = gb4(d), rej = g !== "-", c = cells(d);
     return `<tr class="${rej ? "rj" : ""}" data-no="${esc(d.docNo)}">` + c.v.map((x, k) => { const col = COL4[k], ed = !!WHO4[k], mine = ed && c.e[col];
-      return `<td class="${k === 15 || k === 18 ? "lg" : "nw"}${k === 3 ? " lf" : ""}${k === 8 || k === 16 || k === 17 ? " r" : ""}${k < 3 ? " fz fz" + k : ""}${ed ? " ed" : ""}${mine ? " site" : ""}"${ed ? ` data-c="${col}"` : ""}${mine ? ` title="${esc(c.e[col].by + " · " + c.e[col].at + " 사이트에서 적음")}"` : ""}>${k === 0 ? (rej ? '<span class="b red">반려</span>' : "-") : k === 2 ? `<a class="gwdoc" ${d.docId ? `href="${esc(eapUrlOf(d.docId, d.formId || 22, d.approKey))}" target="_blank" rel="noopener"` : ""} data-tip="${esc(d.docTitle)}">${esc(x)}</a>` : k === 4 && x ? `<span class="stg4 ${chipCls(d)}">${esc(x)}</span>` : esc(x)}</td>`; }).join("") + "</tr>"; };
+      return `<td class="${k === 15 || k === 18 ? "lg" : "nw"}${k === 3 ? " lf" : ""}${k === 8 || k === 16 || k === 17 ? " r" : ""}${k < 3 ? " fz fz" + k : ""}${ed ? " ed" : ""}${mine ? " site" : ""}"${ed ? ` data-c="${col}"` : ""}${mine ? ` title="${esc(c.e[col].by + " · " + c.e[col].at + " 사이트에서 적음")}"` : ""}>${k === 0 ? (g === "반려" ? '<span class="b red">반려</span>' : g === "제외대상" ? '<span class="b gray">제외대상</span>' : "-") : k === 2 ? `<a class="gwdoc" ${d.docId ? `href="${esc(eapUrlOf(d.docId, d.formId || 22, d.approKey))}" target="_blank" rel="noopener"` : ""} data-tip="${esc(d.docTitle)}">${esc(x)}</a>` : k === 4 && x ? `<span class="stg4 ${chipCls(d)}">${esc(x)}</span>` : esc(x)}</td>`; }).join("") + "</tr>"; };
   renderFund._row = row; renderFund._doc = new Map(list.map(d => [d.docNo, d]));
   const shown = list.slice(0, f.lim || 500);
   $("#v-fund").innerHTML = `<div class="bar fund-bar"><b>지출결의서 기준 송금 현황</b><span class="cnt">그룹웨어 지출결의현황 · 기안자 4명 · 2026-01-01 ~ 오늘 · 엑셀 '지출-지출결의서 기준_26Y' 칸 순서</span>
-      <div class="seg" id="fSt">${[["", "전체"], ["ok", "-"], ["rej", "반려 " + nRej]].map(([k, n]) => `<button data-v="${k}" class="${(f.st || "") === k ? "on" : ""}">${n}</button>`).join("")}</div>
+      <div class="seg" id="fSt">${[["", "전체"], ["ok", "-"], ["rej", "반려 " + nRej], ["ex", "제외대상 " + nEx]].map(([k, n]) => `<button data-v="${k}" class="${(f.st || "") === k ? "on" : ""}">${n}</button>`).join("")}</div>
       <select id="fBiz"><option value="">프로젝트 전체</option>${bizAll.map(b => `<option ${f.biz === b ? "selected" : ""}>${esc(b)}</option>`).join("")}</select>
       <select id="fWho">${whoOpts(f.who)}</select>
       <input type="search" id="fQ" placeholder="찾기 (문서번호 · 제목 · 거래처 …)" value="${esc(f.q)}">
