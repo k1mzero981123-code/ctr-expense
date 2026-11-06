@@ -403,7 +403,7 @@ td .cut{display:inline-block;margin-top:3px;padding:1px 7px;border-radius:999px;
 <div id="toast" class="hidden"></div>
 <script>
 "use strict";
-const BUILD = "20261106.154936";   /* 배포할 때 scripts/deploy.js 가 판 번호로 바꾼다 */
+const BUILD = "20261106.155221";   /* 배포할 때 scripts/deploy.js 가 판 번호로 바꾼다 */
 const $ = (s, el) => (el || document).querySelector(s), $$ = (s, el) => [...(el || document).querySelectorAll(s)];
 const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const won = (n) => n == null || n === "" ? "" : Math.round(+n).toLocaleString("ko-KR");
@@ -1300,12 +1300,12 @@ function poDetailHtml(n, p, c, docs){
       const chgX = rc.filter(x => Math.abs(+x.um - l.um) > 0.5).pop(), chg = chgX ? +chgX.um : 0;
       const rcvRow = (x) => { const u = +x.um, du = u - l.um, dif = Math.abs(du) > 0.5;
         return `<tr class="rc"><td><span class="lt-tag rc">입고</span></td><td>${ymd(x.dt).slice(5)}</td><td class="mono">${esc(x.rv)}</td><td class="r">${won(x.qt)}</td>
-          <td class="r">${won(l.um)}</td><td class="r ${dif ? "neg" : "none"}">${dif ? `${won(u)} <small class="dif">${du < 0 ? "▼" : "▲"}${won(Math.abs(du))}</small>` : "없음"}</td><td class="r">${won(x.sup)}</td><td class="r"><b class="blu">${won(x.sum)}</b></td></tr>`; };
+          <td class="r">${won(l.um)}</td><td class="r ${dif ? "neg" : "none"}">${dif ? won(u) : "없음"}</td><td class="r">${won(x.sup)}</td><td class="r"><b class="blu">${won(x.sum)}</b></td></tr>`; };
       return `<div class="pd-card ln">
         <div class="r1"><span class="sq">${l.sq}</span><b ${T(l.nm + " / " + l.dc)}>${esc(l.dc || l.nm)}</b><span class="site" ${T(l.rem)}>${esc(site)}</span></div>
         <table class="lt"><colgroup><col style="width:48px"><col style="width:50px"><col><col style="width:52px"><col style="width:76px"><col style="width:112px"><col style="width:96px"><col style="width:102px"></colgroup>
           <thead><tr><th></th><th>날짜</th><th>번호</th><th class="r">수량</th><th class="r">단가</th><th class="r">변경단가</th><th class="r">공급가액</th><th class="r">합계액</th></tr></thead>
-          <tbody><tr><td><span class="lt-tag">발주</span></td><td>${ymd(p.poDt).slice(5)}</td><td class="mono">${esc(n)}</td><td class="r">${won(l.qt)}</td><td class="r">${won(l.um)}</td><td class="r ${chg ? "neg" : "none"}">${chg ? `${won(chg)} <small class="dif">${chg < l.um ? "▼" : "▲"}${won(Math.abs(chg - l.um))}</small>` : "없음"}</td><td class="r">${won(l.sup)}</td><td class="r"><b>${won(l.sum)}</b></td></tr>
+          <tbody><tr><td><span class="lt-tag">발주</span></td><td>${ymd(p.poDt).slice(5)}</td><td class="mono">${esc(n)}</td><td class="r">${won(l.qt)}</td><td class="r">${won(l.um)}</td><td class="r ${chg ? "neg" : "none"}">${chg ? won(chg) : "없음"}</td><td class="r">${won(l.sup)}</td><td class="r"><b>${won(l.sum)}</b></td></tr>
           ${rc.length ? rc.map(rcvRow).join("") + (rc.length > 1 ? `<tr class="rc tot"><td></td><td colspan="2">입고 합계${rq < l.qt ? " · 일부" : ""}</td><td class="r">${won(rq)}</td><td></td><td></td><td class="r">${won(rc.reduce((s, x) => s + (+x.sup || 0), 0))}</td><td class="r"><b class="blu">${won(rs)}</b></td></tr>` : "")
             : `<tr class="rc none"><td><span class="lt-tag none">입고</span></td><td colspan="7">입고 전 (계산서 없음)</td></tr>`}</tbody></table></div>`; };
   const left = p ? `<div class="pd-col"><h4>발주 품목 <small>${p.lines.length}줄</small></h4>${p.lines.map(lineCard).join("")}</div>` : "";
