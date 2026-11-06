@@ -322,6 +322,7 @@ td.rcvc .amt{color:#1d4f9c}
 .lt-tag{display:inline-block;border-radius:6px;padding:1px 7px;font-size:11px;font-weight:700;background:#eef1f0;color:var(--ink-2)}
 .lt-tag.rc{background:#e7f0ff;color:#1d4f9c} .lt-tag.none{background:#f3f4f4;color:#a3aca7}
 @media (max-width:1100px){ .pd-card.ln .lt td{white-space:normal} }
+.pd-card .split{flex:none;font-size:11px;color:var(--ink-2);background:#f1f4f2;border-radius:6px;padding:1px 7px}
 .gwdoc{color:#1d4f9c;text-decoration:none;font-weight:700;border-bottom:1px dashed #9db6dc} .gwdoc:hover{border-bottom-style:solid}
 #v-main .tiles .tile.act{box-shadow:0 0 0 2px var(--g) inset,var(--sh)}
 .tfx{border:1px solid var(--g);background:var(--g-bg);color:var(--g-d);border-radius:999px;padding:4px 12px;font:inherit;font-size:12.5px;font-weight:700;cursor:pointer;white-space:nowrap}
@@ -378,7 +379,7 @@ td .cut{display:inline-block;margin-top:3px;padding:1px 7px;border-radius:999px;
 <div id="toast" class="hidden"></div>
 <script>
 "use strict";
-const BUILD = "20261106.135041";   /* 배포할 때 scripts/deploy.js 가 판 번호로 바꾼다 */
+const BUILD = "20261106.135535";   /* 배포할 때 scripts/deploy.js 가 판 번호로 바꾼다 */
 const $ = (s, el) => (el || document).querySelector(s), $$ = (s, el) => [...(el || document).querySelectorAll(s)];
 const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const won = (n) => n == null || n === "" ? "" : Math.round(+n).toLocaleString("ko-KR");
@@ -1225,7 +1226,7 @@ function poDetailHtml(n, p, c, docs){
   /* 오른쪽 — 지출결의: 선금 / 잔금(잔금·100%·중도금·차액) 나눠서 카드 */
   const card = (d) => { const ks = [...new Set(d._iss)];
     return `<div class="pd-card doc ${d._live ? "" : "dim"}">
-      <div class="r1"><span class="stg ${chipCls(d)}">${esc(stageLbl(d))}</span><b class="mono amt">${won(d.docSumAm)}</b>${stB(d)}${ks.slice(0, 2).map(k => `<span class="b ${KIND[k][1]}">${KIND[k][0]}</span>`).join("")}</div>
+      <div class="r1"><span class="stg ${chipCls(d)}">${esc(stageLbl(d))}</span><b class="mono amt">${won(d.docSumAm)}</b>${d._splitOf ? `<span class="split">${d._splitN}곳 한 건 ${won(d._splitOf)} 중 이 현장 몫</span>` : ""}${stB(d)}${ks.slice(0, 2).map(k => `<span class="b ${KIND[k][1]}">${KIND[k][0]}</span>`).join("")}</div>
       <div class="r2"><span><i>문서번호</i>${d.docId ? `<a class="gwdoc" href="${esc(eapUrl(d))}" target="_blank" rel="noopener" title="아마란스에서 이 지출결의서 열기">${esc(shortNo(d))} ↗</a>` : esc(shortNo(d))}</span><span><i>기안</i>${esc(d.empNm)} ${esc(String(d.upDate).slice(5))}</span><span><i>지급요청</i>${ymd(d.payDt).slice(5) || "-"}</span>${(d._det || []).filter(l => !DET_MAT.test(l.t)).map(l => `<span class="acct"><i>계정</i>${esc(l.t.replace(/^\[[^\]]*\]\s*/, ""))} ${won(l.sum)}</span>`).join("")}${d.approState === "0" && d.nextEmpNm ? `<span><i>다음</i>${esc(d.nextEmpNm)}</span>` : ""}</div>
       <div class="r3 t" ${T(d.docTitle)}>${esc(d.docTitle)}</div>${fixNote(d, n)}</div>`; };
   const pre = docs.filter(SLOT1), post = docs.filter(d => !SLOT1(d));
@@ -1241,8 +1242,22 @@ function poDetailHtml(n, p, c, docs){
     const docOf = (sk) => docs.filter(d => { const b = (d._base || []).filter(x => x.po === n); return b.length && b.length < allSq && b.every(x => (lineSite(x.l) || "-") === sk); });
     const two = (ds) => { const a = ds.filter(SLOT1), b = ds.filter(d => !SLOT1(d));
       return `<div class="ps-two"><div class="pd-sec s-pre"><div class="h">① 선금</div>${a.map(card).join("") || '<div class="none">없음</div>'}</div><div class="pd-sec s-post"><div class="h">② 잔금</div>${b.map(card).join("") || '<div class="none">없음</div>'}</div></div>`; };
+    /* 여러 현장을 한 건으로 올린 지출결의 나누기 — 2026-11-06 사용자: "비고란에 1호 2호 3호 이지만 발주등록 위 비고는 무지1-3호 … 저 선금이 각 호기별 선금 20%로 반영을 하였을 때 총 합계액이 20%가 맞으면 분리".
+       기준 품목 줄(이 발주 안) 합계 × 제목 비율(없으면 100%) 이 지출결의 금액과 맞으면(오차 안) 현장별 품목 합계 비율로 나눠 각 현장 줄에 '나눔' 카드로. 안 맞으면 그대로 '현장 구분 안 됨' */
+    const splits = new Map();   /* 현장 → [나눈 카드용 복사본] */
+    for (const d of docs){
+      const b = (d._base || []).filter(x => x.po === n), bs = b.reduce((s, x) => s + (+x.l.sum || 0), 0), tot = +d.docSumAm || 0;
+      const bySite = new Map(); for (const x of b){ const k = lineSite(x.l) || "-"; bySite.set(k, (bySite.get(k) || 0) + (+x.l.sum || 0)); }
+      if (bySite.size < 2 || !bs || !d._baseSum) continue;
+      const pct = d._pct != null ? d._pct : (d._stage === "대금" ? 100 : null);
+      if (pct == null || Math.abs(tot - d._baseSum * pct / 100) > tolOf(d._baseSum * pct / 100)) continue;
+      const mine = tot * bs / d._baseSum, ks = [...bySite.keys()]; let left = Math.round(mine);
+      ks.forEach((k, i) => { const v = i === ks.length - 1 ? left : Math.round(mine * bySite.get(k) / bs); left -= v;
+        if (!splits.has(k)) splits.set(k, []); splits.get(k).push(Object.assign(Object.create(d), { docSumAm: v, _splitOf: tot, _splitN: ks.length })); });
+      used.add(d);
+    }
     const rows = sites.map(sk => {
-      const ls = p.lines.filter(l => (lineSite(l) || "-") === sk), ds = docOf(sk); ds.forEach(d => used.add(d));
+      const ls = p.lines.filter(l => (lineSite(l) || "-") === sk), ds = docOf(sk).concat(splits.get(sk) || []); ds.forEach(d => used.add(d));
       const nm = String(ls[0].rem || "").replace(/^\s*\([^)]*\)\s*/, "") || "(현장 비고 없음)";
       const sum = ls.reduce((s, l) => s + (+l.sum || 0), 0), paidS = ds.filter(d => d._live).reduce((s, d) => s + (+d.docSumAm || 0), 0);
       return `<div class="ps-row"><div class="ps-h"><b>${esc(nm)}</b><span>발주 ${won(sum)}</span><span>지출결의 ${won(paidS)} (${ds.length}건)</span><span class="${paidS - sum > tolOf(sum) ? "neg" : ""}">남은 ${won(sum - paidS)}</span></div>
