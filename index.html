@@ -379,7 +379,7 @@ td .cut{display:inline-block;margin-top:3px;padding:1px 7px;border-radius:999px;
 <div id="toast" class="hidden"></div>
 <script>
 "use strict";
-const BUILD = "20261106.135535";   /* 배포할 때 scripts/deploy.js 가 판 번호로 바꾼다 */
+const BUILD = "20261106.135811";   /* 배포할 때 scripts/deploy.js 가 판 번호로 바꾼다 */
 const $ = (s, el) => (el || document).querySelector(s), $$ = (s, el) => [...(el || document).querySelectorAll(s)];
 const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const won = (n) => n == null || n === "" ? "" : Math.round(+n).toLocaleString("ko-KR");
@@ -1214,14 +1214,14 @@ function poDetailHtml(n, p, c, docs){
       /* 2026-11-06 사용자: "이 부분이 너무 보기가 어렵고 가독성이 안좋은 것 같애 … 깔끔하고 한눈에" → 발주 줄 · 입고 줄을 칸 맞춘 작은 표로(같은 칸끼리 위아래로 비교). 입고가 여러 번이면 입고마다 한 줄 */
       const rcvRow = (x) => { const u = +x.um, du = u - l.um, dif = Math.abs(du) > 0.5;
         return `<tr class="rc"><td><span class="lt-tag rc">입고</span></td><td>${ymd(x.dt).slice(5)}</td><td class="mono">${esc(x.rv)}</td><td class="r">${won(x.qt)}</td>
-          <td class="r ${dif ? "neg" : ""}">${won(u)}${dif ? ` <small class="dif">${du < 0 ? "▼" : "▲"}${won(Math.abs(du))}</small>` : ""}</td><td class="r"><b class="blu">${won(x.sum)}</b></td></tr>`; };
+          <td class="r ${dif ? "neg" : ""}">${won(u)}${dif ? ` <small class="dif">${du < 0 ? "▼" : "▲"}${won(Math.abs(du))}</small>` : ""}</td><td class="r">${won(x.sup)}</td><td class="r"><b class="blu">${won(x.sum)}</b></td></tr>`; };
       return `<div class="pd-card ln">
         <div class="r1"><span class="sq">${l.sq}</span><b ${T(l.nm + " / " + l.dc)}>${esc(l.dc || l.nm)}</b><span class="site" ${T(l.rem)}>${esc(site)}</span></div>
-        <table class="lt"><colgroup><col style="width:52px"><col style="width:66px"><col style="width:118px"><col style="width:70px"><col><col style="width:110px"></colgroup>
-          <thead><tr><th></th><th>날짜</th><th>번호</th><th class="r">수량</th><th class="r">단가</th><th class="r">합계</th></tr></thead>
-          <tbody><tr><td><span class="lt-tag">발주</span></td><td>납기 ${ymd(l.due).slice(5) || "-"}</td><td class="dim">—</td><td class="r">${won(l.qt)}</td><td class="r">${won(l.um)}</td><td class="r"><b>${won(l.sum)}</b></td></tr>
-          ${rc.length ? rc.map(rcvRow).join("") + (rc.length > 1 ? `<tr class="rc tot"><td></td><td colspan="2">입고 합계${rq < l.qt ? " · 일부" : ""}</td><td class="r">${won(rq)}</td><td></td><td class="r"><b class="blu">${won(rs)}</b></td></tr>` : "")
-            : `<tr class="rc none"><td><span class="lt-tag none">입고</span></td><td colspan="5">입고 전 (계산서 없음)</td></tr>`}</tbody></table></div>`; };
+        <table class="lt"><colgroup><col style="width:50px"><col style="width:52px"><col style="width:118px"><col style="width:52px"><col><col style="width:100px"><col style="width:104px"></colgroup>
+          <thead><tr><th></th><th>날짜</th><th>번호</th><th class="r">수량</th><th class="r">단가</th><th class="r">공급가액</th><th class="r">합계액</th></tr></thead>
+          <tbody><tr><td><span class="lt-tag">발주</span></td><td>${ymd(p.poDt).slice(5)}</td><td class="mono">${esc(n)}</td><td class="r">${won(l.qt)}</td><td class="r">${won(l.um)}</td><td class="r">${won(l.sup)}</td><td class="r"><b>${won(l.sum)}</b></td></tr>
+          ${rc.length ? rc.map(rcvRow).join("") + (rc.length > 1 ? `<tr class="rc tot"><td></td><td colspan="2">입고 합계${rq < l.qt ? " · 일부" : ""}</td><td class="r">${won(rq)}</td><td></td><td class="r">${won(rc.reduce((s, x) => s + (+x.sup || 0), 0))}</td><td class="r"><b class="blu">${won(rs)}</b></td></tr>` : "")
+            : `<tr class="rc none"><td><span class="lt-tag none">입고</span></td><td colspan="6">입고 전 (계산서 없음)</td></tr>`}</tbody></table></div>`; };
   const left = p ? `<div class="pd-col"><h4>발주 품목 <small>${p.lines.length}줄</small></h4>${p.lines.map(lineCard).join("")}</div>` : "";
   /* 오른쪽 — 지출결의: 선금 / 잔금(잔금·100%·중도금·차액) 나눠서 카드 */
   const card = (d) => { const ks = [...new Set(d._iss)];
