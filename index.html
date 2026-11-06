@@ -379,7 +379,7 @@ td .cut{display:inline-block;margin-top:3px;padding:1px 7px;border-radius:999px;
 <div id="toast" class="hidden"></div>
 <script>
 "use strict";
-const BUILD = "20261106.135811";   /* 배포할 때 scripts/deploy.js 가 판 번호로 바꾼다 */
+const BUILD = "20261106.135927";   /* 배포할 때 scripts/deploy.js 가 판 번호로 바꾼다 */
 const $ = (s, el) => (el || document).querySelector(s), $$ = (s, el) => [...(el || document).querySelectorAll(s)];
 const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const won = (n) => n == null || n === "" ? "" : Math.round(+n).toLocaleString("ko-KR");
@@ -1313,7 +1313,14 @@ $("#syncInfo").onclick = () => load(true).then(() => toast("새로 불러왔습�
 document.addEventListener("click", (e) => {
   const t = e.target;
   if (t.closest("[data-close]") || t === $("#mask")) return closeModal();
-  /* 아마란스 발주등록 열기 — 주소로 발주번호를 넘길 수 없어 번호를 복사해 두고 화면만 연다(그룹웨어에 로그인된 브라우저에서) */
+  /* 문서번호 → 아마란스 결재문서를 새 탭이 아니라 팝업 창으로(아마란스가 결재문서를 여는 크기와 같게) — 2026-11-06 사용자: "새창을 들어가서 확인하는거 말고 팝업처럼 화면에 띄워주면".
+     우리 창 안에 넣으면(iframe) 그룹웨어 로그인 쿠키(SameSite=Lax)가 안 실려 로그인 화면만 뜸 → 팝업 창으로. 같은 이름 창을 다시 써서 창이 쌓이지 않게 */
+  const gd = t.closest("a.gwdoc"); if (gd){ e.preventDefault();
+    const w = Math.min(1050, screen.availWidth - 40), h = screen.availHeight - 60, l = (screen.availLeft || 0) + Math.max(0, (screen.availWidth - w) / 2), tp = (screen.availTop || 0) + 20;
+    const win = window.open(gd.href, "ctr-eap", `popup=yes,width=${w},height=${h},left=${l},top=${tp},resizable=yes,scrollbars=yes`);
+    if (win) win.focus(); else window.open(gd.href, "_blank");
+    return; }
+  /* 아마란스 발주등록 열기 —주소로 발주번호를 넘길 수 없어 번호를 복사해 두고 화면만 연다(그룹웨어에 로그인된 브라우저에서) */
   const gw = t.closest("[data-gwpo]"); if (gw){ const n = gw.dataset.gwpo;
     window.open("https://gw.ctrenergy.co.kr/#/PO/POC0010/POC0010", "_blank", "noopener");
     (navigator.clipboard ? navigator.clipboard.writeText(n) : Promise.reject()).then(() => toast(n + " 복사됨 — 발주등록 발주번호 칸에 붙여넣기(Ctrl+V) 후 조회"), () => toast("발주번호 " + n + " 로 조회해 주세요"));
