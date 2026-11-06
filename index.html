@@ -359,6 +359,12 @@ td.rcvc .amt{color:#1d4f9c}
 .fundt thead th.w-us{background:#eef6f1} .fundt thead th.w-fin{background:#f3f1fa}
 .fundt td.ed{cursor:text} .fundt td.ed:hover{outline:1px solid #b9d7c5;outline-offset:-1px;background:#fbfdfc}
 .fundt td.ed.site{color:#1d4f9c;font-weight:600} .fundt td.inf{color:#7c8a83;font-style:italic}
+#acctBtn{margin-right:6px} .tfx.lg4{background:#fff;color:var(--ink-2);border-color:var(--line)}
+.act tr.off td{color:#a4aba7} .act select{font:inherit;padding:3px 6px;border-radius:6px;border:1px solid var(--line)} .acct-bar{gap:10px;align-items:center}
+.dnote{margin-top:10px;font-size:12px;color:var(--ink-2);line-height:1.6} .lgt td.wrap{white-space:normal;word-break:keep-all;overflow-wrap:anywhere}
+.fundt .dcell{display:inline-flex;align-items:center;gap:4px;justify-content:center;width:100%} .fundt .dcell span{min-width:72px}
+.fundt .cal{border:0;background:none;cursor:pointer;font-size:12px;padding:0 2px;opacity:.55;line-height:1} .fundt .cal:hover{opacity:1}
+.fundt td{position:relative} .fundt .dpick{position:absolute;left:0;bottom:0;width:1px;height:1px;opacity:0;border:0;padding:0}
 .fundt td.ed input{width:100%;min-width:90px;font:inherit;font-size:12px;padding:1px 4px;border:1px solid var(--g);border-radius:4px;box-sizing:border-box}
 .fundt td.lg{white-space:normal!important;min-width:160px;max-width:300px;word-break:keep-all;overflow-wrap:anywhere}
 .fundt .r{text-align:right!important;font-variant-numeric:tabular-nums}
@@ -415,7 +421,7 @@ td .cut{display:inline-block;margin-top:3px;padding:1px 7px;border-radius:999px;
       <button data-go="rej">③ 반려 후 지출 검토<span class="n hidden" id="nRej"></span></button>
       <button data-go="fund">④ 송금 현황</button>
     </nav>
-    <div class="hright"><span class="sync" id="syncInfo" title="눌러서 새로 불러오기"></span><span id="who"></span><button id="logout">로그아웃</button></div>
+    <div class="hright"><span class="sync" id="syncInfo" title="눌러서 새로 불러오기"></span><span id="who"></span><button id="acctBtn" class="hidden" title="이 사이트 권한 정하기(관리자)">계정 관리</button><button id="logout">로그아웃</button></div>
   </header>
   <main>
     <section id="v-main"></section>
@@ -426,6 +432,7 @@ td .cut{display:inline-block;margin-top:3px;padding:1px 7px;border-radius:999px;
     <section id="v-guide" class="hidden"></section>
     <section id="v-rej" class="hidden"></section>
     <section id="v-fund" class="hidden"></section>
+    <section id="v-acct" class="hidden"></section>
     <section id="v-deny" class="hidden"><div class="panel empty">아직 관리자만 볼 수 있는 화면입니다.</div></section>
   </main>
 </div>
@@ -433,7 +440,7 @@ td .cut{display:inline-block;margin-top:3px;padding:1px 7px;border-radius:999px;
 <div id="toast" class="hidden"></div>
 <script>
 "use strict";
-const BUILD = "20261106.172335";   /* 배포할 때 scripts/deploy.js 가 판 번호로 바꾼다 */
+const BUILD = "20261106.173035";   /* 배포할 때 scripts/deploy.js 가 판 번호로 바꾼다 */
 const $ = (s, el) => (el || document).querySelector(s), $$ = (s, el) => [...(el || document).querySelectorAll(s)];
 const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const won = (n) => n == null || n === "" ? "" : Math.round(+n).toLocaleString("ko-KR");
@@ -643,7 +650,7 @@ const poLink = (n) => `<span class="po" data-po="${esc(n)}">${esc(n)}</span>`;
 function go(page){
   S.page = page;
   $$("#nav button").forEach(b => b.classList.toggle("on", b.dataset.go === (page === "docs" ? "check" : page)));
-  for (const v of ["main", "dash", "check", "docs", "pos", "guide", "rej", "fund", "deny"]) $("#v-" + v).classList.toggle("hidden", v !== page);
+  for (const v of ["main", "dash", "check", "docs", "pos", "guide", "rej", "fund", "acct", "deny"]) $("#v-" + v).classList.toggle("hidden", v !== page);
   render();
 }
 function render(){
@@ -654,7 +661,7 @@ function render(){
   $("#nLive").textContent = nl; $("#nLive").classList.toggle("hidden", !nl);
   const nr = rejRows().filter(r => r.lv >= 2 && r.st !== "ok").length;
   $("#nRej").textContent = nr; $("#nRej").classList.toggle("hidden", !nr);
-  ({ main: renderMain, dash: renderDash, check: renderCheck, docs: renderDocs, pos: renderPos, guide: renderGuide, rej: renderRej, fund: renderFund })[S.page]?.();
+  ({ main: renderMain, dash: renderDash, check: renderCheck, docs: renderDocs, pos: renderPos, guide: renderGuide, rej: renderRej, fund: renderFund, acct: renderAcct })[S.page]?.();
 }
 /* 발주별 지출결의 — 발주등록(발주현황)의 발주번호마다 발주금액(공급가액)과, 제목에 그 발주번호를 적은 지출결의서의 공급가액 합계.
    발주일 10/1 이후만(지출결의를 10/1 부터 받으므로 그 전 발주는 합계가 빠질 수 있다). 합계는 진행 + 결재완료만, 반려·삭제·미상신은 펼치면 흐리게 보인다.
@@ -1148,27 +1155,41 @@ function poNoLink(n){
 /* 제목 맨 앞 (사업명) — '(05월)' · '(카드지출)' 처럼 사업명이 아닌 괄호면 전산 프로젝트명. 끝의 '사업'은 떼서 맞춤('유통사업' → '유통') */
 function biz4(d){ const m = /^\s*(?:\[[^\]]*\]\s*)*\(([^)]*)\)/.exec(d.docTitle || ""); let b = m ? m[1].trim() : "";
   if (!b || /^\d+\s*월$|카드|경조|법인|복리|교육|출장|통신|교통/.test(b)) b = String(d.pjtNm || "").trim();
-  return b.replace(/사업$/, "").trim(); }
+  /* 띄어쓰기 · 쉼표 모양만 다른 건 하나로(2026-11-06 사용자: '유류비 정산' · '유류비정산' 둘로 보임 → "센스있게 하나로 통합") */
+  return b.replace(/사업$/, "").replace(/\s+/g, "").replace(/,/g, ", ").trim(); }
 function bizSite(d){ const m = /^\s*(?:\[[^\]]*\]\s*)*(\([^)]*\))/.exec(d.docTitle || ""); const s = siteName(d); return ((m ? m[1] + " " : "") + (s || "")).trim(); }
 function stg4(d){ if (!d._pos.length && EXEMPT.test(d.docTitle)) return "경비"; if (d._stage === "대금" || d._pct === 100) return "대금 100%"; return d._stage + (d._pct != null ? " " + d._pct + "%" : ""); }
 /* ④ 칸 → 엑셀 열 글자 · 누가 쓰는 칸인지(2026-11-06 사용자: "M~N 그리고 P, R~T열은 우리가 작성 … J~L, O, Q 는 재무팀에서 직접 작성") */
 const COL4 = [null, "A", "B", null, null, "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T"];
 const WHO4 = { 11: "fin", 12: "fin", 13: "fin", 14: "us", 15: "us", 16: "fin", 17: "us", 18: "fin", 19: "us", 20: "us", 21: "us" };
 /* 칸 누르면 그 자리에서 입력 — Enter·칸 밖 누르기 = 저장, Esc = 취소. 비우고 저장하면 사이트 값을 지우고 엑셀 값 · 수식으로 돌아감 */
+/* 이 사람이 적을 수 있는 칸 — 계정 관리 권한(서버가 다시 검사). admin · all = 둘 다, us = 우리 칸, fin = 재무팀 칸 */
+const canW4 = (grp) => { const lv = ((S.data || {}).user || {}).lv || ""; return lv === "admin" || lv === "all" || lv === grp; };
 function edit4(td){
   const tr = td.closest("tr"), no = tr.dataset.no, col = td.dataset.c, d = (renderFund._doc || new Map()).get(no);
   if (!d || !col) return;
   const e = ((S.data.meta || {})["f4:" + no] || {}).v || {}, cur = e[col] ? e[col].t : td.textContent.trim().replace(/^-$/, "");
   /* 2026-11-06 사용자: "송금예정일, 완료여부 < 달력으로 바로 표기할 수 있게 해주고 요청일자 < 달력으로 표기" → J·K·M 은 달력(날짜 고르면 바로 저장). 지금 값이 '2026.11.05'·'2026-11-05 …' 꼴이면 날짜로 바꿔 넣음 */
   const isDate = /^[JKM]$/.test(col), dv = (() => { const m = /(\d{4})[.\-/](\d{1,2})[.\-/](\d{1,2})/.exec(cur); return m ? `${m[1]}-${m[2].padStart(2, "0")}-${m[3].padStart(2, "0")}` : ""; })();
-  td.innerHTML = isDate ? `<input type="date" value="${esc(dv)}">` : `<input value="${esc(cur)}">`;
-  const inp = td.querySelector("input"); inp.focus(); if (isDate){ try{ inp.showPicker(); }catch(e){} } else inp.select();
-  if (isDate) inp.onchange = () => { if (inp.value) save(); };
+  if (isDate){
+    /* 달력만 띄움 — 칸 글자는 그대로 두고 안 보이는 날짜 입력에서 달력을 엶. 고르면 바로 저장, 달력 '지우기' = 사이트 값 지움 */
+    const inp = document.createElement("input"); inp.type = "date"; inp.value = dv; inp.className = "dpick"; td.appendChild(inp);
+    let fired = false;
+    const go = async (val) => { if (fired) return; fired = true; inp.remove(); if (val === dv) return;
+      try{ const r = await api("fund4", { docNo: no, col, value: val, from: cur }); S.data.meta["f4:" + no] = r.value; if (r.log) S.data.meta[r.log.key] = r.log.value; const n = document.createElement("tbody"); n.innerHTML = renderFund._row(d); tr.replaceWith(n.firstElementChild); toast(val ? "저장했습니다" : "지웠습니다 — 엑셀 값 · 수식으로 돌아갑니다"); }
+      catch(err){ toast(err.message); } };
+    inp.onchange = () => go(inp.value);
+    inp.onblur = () => setTimeout(() => { if (!fired){ fired = true; inp.remove(); } }, 200);
+    try{ inp.showPicker(); }catch(e){ inp.focus(); }
+    return;
+  }
+  td.innerHTML = `<input value="${esc(cur)}">`;
+  const inp = td.querySelector("input"); inp.focus(); inp.select();
   let done = false;
   const back = () => { const n = document.createElement("tbody"); n.innerHTML = renderFund._row(d); tr.replaceWith(n.firstElementChild); };
   const save = async () => { if (done) return; done = true; const val = inp.value.trim();
     if (val === cur){ back(); return; }
-    try{ const r = await api("fund4", { docNo: no, col, value: val }); S.data.meta["f4:" + no] = r.value; back(); toast(val ? "저장했습니다" : "지웠습니다 — 엑셀 값 · 수식으로 돌아갑니다"); }
+    try{ const r = await api("fund4", { docNo: no, col, value: val, from: cur }); S.data.meta["f4:" + no] = r.value; if (r.log) S.data.meta[r.log.key] = r.log.value; back(); toast(val ? "저장했습니다" : "지웠습니다 — 엑셀 값 · 수식으로 돌아갑니다"); }
     catch(err){ done = false; toast(err.message); } };
   inp.onkeydown = (ev) => { if (ev.key === "Enter"){ ev.preventDefault(); save(); } else if (ev.key === "Escape"){ done = true; back(); } };
   inp.onblur = () => save();
@@ -1179,22 +1200,39 @@ function cfOpen(btn, k){
   const f = S.f.fund, cf = f.cf || (f.cf = {}), cells = renderFund._cells, val4 = renderFund._val;
   const others = Object.keys(cf).filter(x => +x !== k && Array.isArray(cf[x]));
   const rows = (renderFund._pre || []).map(d => cells(d).v).filter(v => others.every(x => cf[x].includes(val4(v, +x))));
-  const cnt = new Map(); for (const v of rows){ const s = val4(v, k); cnt.set(s, (cnt.get(s) || 0) + 1); }
+  const cnt = new Map(), vari = new Map(); for (const v of rows){ const s = val4(v, k), r0 = renderFund._raw(v, k); cnt.set(s, (cnt.get(s) || 0) + 1); const m = vari.get(s) || new Map(); m.set(r0, (m.get(r0) || 0) + 1); vari.set(s, m); }
+  const lbl = (s) => { const m = vari.get(s); return m ? [...m.entries()].sort((a, b) => b[1] - a[1])[0][0] : s; };
   const vals = [...cnt.keys()].sort((a, b) => (a === "(빈 칸)") - (b === "(빈 칸)") || a.localeCompare(b, "ko", { numeric: true }));
   let sel = new Set(Array.isArray(cf[k]) ? cf[k] : vals), q = "";
+  /* 날짜 칸이면 엑셀처럼 연도 → 월 → 일 묶음 — 2026-11-06 사용자: "이부분도 연도별-월별-일별 이렇게 볼 수 있도록" */
+  const DRE = /^(\d{4})-(\d\d)-(\d\d)$/, dateMode = vals.some(v => DRE.test(v)) && vals.every(v => v === "(빈 칸)" || DRE.test(v));
+  const open = new Set();
+  const tree = () => {
+    const ys = [...new Set(vals.filter(v => DRE.test(v)).map(v => v.slice(0, 4)))];
+    const box = (g, lbl, n, tg) => { const ds = vals.filter(v => v.startsWith(g)), all = ds.every(v => sel.has(v));
+      return `<div class="tr"><span class="tg" data-tg="${g}">${open.has(g) ? "▾" : "▸"}</span><label><input type="checkbox" data-g="${g}" ${all ? "checked" : ""}> <span>${lbl}</span><small>${n}</small></label></div>`; };
+    return ys.map(y => { const ym = [...new Set(vals.filter(v => v.startsWith(y + "-")).map(v => v.slice(0, 7)))], yn = vals.filter(v => v.startsWith(y)).reduce((s, v) => s + cnt.get(v), 0);
+      return box(y, y + "년", yn) + (open.has(y) ? `<div class="sub1">${ym.map(m => { const dl = vals.filter(v => v.startsWith(m)), mn = dl.reduce((s, v) => s + cnt.get(v), 0);
+        return box(m, (+m.slice(5)) + "월", mn) + (open.has(m) ? `<div class="sub2">${dl.map(v => `<label><input type="checkbox" data-v="${v}" ${sel.has(v) ? "checked" : ""}> <span>${+v.slice(8)}일</span><small>${cnt.get(v)}</small></label>`).join("")}</div>` : ""); }).join("")}</div>` : ""); }).join("")
+      + (cnt.has("(빈 칸)") ? `<label><input type="checkbox" data-v="(빈 칸)" ${sel.has("(빈 칸)") ? "checked" : ""}> <span>(빈 칸)</span><small>${cnt.get("(빈 칸)")}</small></label>` : "");
+  };
   let pop = $("#cfPop"); if (pop) pop.remove();
   pop = document.createElement("div"); pop.id = "cfPop"; document.body.appendChild(pop);
   const draw = () => {
-    const show = vals.filter(v => !q || v.toLowerCase().includes(q)), cut = show.slice(0, 400);
+    const show = vals.filter(v => !q || v.toLowerCase().includes(q.replace(/\s+/g, "")) || lbl(v).toLowerCase().includes(q)), cut = show.slice(0, 400);
     pop.innerHTML = `<input type="search" placeholder="찾기" value="${esc(q)}">
       <label><input type="checkbox" data-all ${show.every(v => sel.has(v)) ? "checked" : ""}> <b>(모두 선택)</b><small>${show.length.toLocaleString()}개</small></label>
-      <div class="lst">${cut.map(v => `<label><input type="checkbox" data-v="${esc(v)}" ${sel.has(v) ? "checked" : ""}> <span>${esc(v)}</span><small>${cnt.get(v)}</small></label>`).join("")}${show.length > cut.length ? `<div class="more">… ${show.length - cut.length}개 더 — 찾기로 좁혀 주세요</div>` : ""}</div>
+      <div class="lst">${dateMode && !q ? tree() : cut.map(v => `<label><input type="checkbox" data-v="${esc(v)}" ${sel.has(v) ? "checked" : ""}> <span>${esc(lbl(v))}</span><small>${cnt.get(v)}</small></label>`).join("") + (show.length > cut.length ? `<div class="more">… ${show.length - cut.length}개 더 — 찾기로 좁혀 주세요</div>` : "")}</div>
       <div class="bt"><button data-x="clr">이 칸 필터 지우기</button><button data-x="no">취소</button><button class="ok" data-x="ok">확인</button></div>`;
     const inp = pop.querySelector("input[type=search]");
     inp.oninput = () => { q = inp.value.trim().toLowerCase(); const p = inp.selectionStart; draw(); const i2 = pop.querySelector("input[type=search]"); i2.focus(); i2.setSelectionRange(p, p); };
     pop.querySelector("[data-all]").onchange = (e) => { for (const v of show) e.target.checked ? sel.add(v) : sel.delete(v); draw(); };
-    pop.querySelectorAll("[data-v]").forEach(c => c.onchange = () => { c.checked ? sel.add(c.dataset.v) : sel.delete(c.dataset.v); });
-    pop.querySelector("[data-x=ok]").onclick = () => { const picked = q ? vals.filter(v => sel.has(v) && v.toLowerCase().includes(q)) : vals.filter(v => sel.has(v));
+    pop.querySelectorAll("[data-v]").forEach(c => c.onchange = () => { c.checked ? sel.add(c.dataset.v) : sel.delete(c.dataset.v); if (dateMode && !q) draw(); });
+    /* 날짜 묶음: ▸ 펼치기/접기, 연·월 체크 = 그 안의 날짜 전부 */
+    pop.querySelectorAll("[data-tg]").forEach(t => t.onclick = () => { const g = t.dataset.tg; open.has(g) ? open.delete(g) : open.add(g); draw(); });
+    pop.querySelectorAll("[data-g]").forEach(c => { const g = c.dataset.g, ds = vals.filter(v => v.startsWith(g)), n = ds.filter(v => sel.has(v)).length; c.indeterminate = n > 0 && n < ds.length;
+      c.onchange = () => { for (const v of ds) c.checked ? sel.add(v) : sel.delete(v); draw(); }; });
+    pop.querySelector("[data-x=ok]").onclick = () => { const picked = q ? vals.filter(v => sel.has(v) && (v.toLowerCase().includes(q.replace(/\s+/g, "")) || lbl(v).toLowerCase().includes(q))) : vals.filter(v => sel.has(v));
       if (picked.length === vals.length) delete cf[k]; else cf[k] = picked; pop.remove(); f.lim = 0; renderFund(); };
     pop.querySelector("[data-x=no]").onclick = () => pop.remove();
     pop.querySelector("[data-x=clr]").onclick = () => { delete cf[k]; pop.remove(); f.lim = 0; renderFund(); };
@@ -1260,22 +1298,26 @@ function renderFund(){
         pick(e, "R", ln.bk || x.bank || ""), sv, pick(e, "T", ln.dp || x.holder || "")], sInf }; };
   /* 칸마다 필터(엑셀 자동 필터처럼) — 2026-11-06 사용자: "필터를 좀 걸 수 있게 해달라니까?" → 칸 이름 옆 ▾: 그 칸 값 목록 체크 · 검색. f.cf = { 칸번호: [고른 값…] } */
   const cf = f.cf || (f.cf = {}), cfKeys = Object.keys(cf).filter(k => Array.isArray(cf[k]));
-  const val4 = (v, k) => { const s = String(v[k] == null ? "" : v[k]).trim(); return s === "" ? "(빈 칸)" : s; };
+  /* 필터 값은 띄어쓰기를 무시하고 묶음, 거래처(5) · 예금주(21)는 (주) · 주식회사 · ㈜ 도 무시 — 목록에는 가장 많이 쓰인 표기를 보여 줌(cfOpen) */
+  const val4 = (v, k) => { let s = String(v[k] == null ? "" : v[k]).trim(); if (s === "") return "(빈 칸)"; s = s.replace(/\s+/g, ""); if (k === 5 || k === 21) s = s.replace(/\(주\)|주식회사|㈜/g, "") || s; return s; };
+  const raw4 = (v, k) => String(v[k] == null ? "" : v[k]).trim() || "(빈 칸)";
+  renderFund._raw = raw4;
   renderFund._pre = list; renderFund._cells = cells; renderFund._val = val4;
   if (cfKeys.length){ list = list.filter(d => { const v = cells(d).v; return cfKeys.every(k => cf[k].includes(val4(v, +k))); }); sum = list.reduce((s, d) => s + (+d.docSumAm || 0), 0); }
   const unpaid = list.reduce((s, d) => s + cells(d).pNum, 0);
   const row = (d) => { const g = gb4(d), rej = g !== "-", c = cells(d);
-    return `<tr class="${rej ? "rj" : ""}" data-no="${esc(d.docNo)}">` + c.v.map((x, k) => { const col = COL4[k], ed = !!WHO4[k], mine = ed && c.e[col];
-      return `<td class="${k === 15 || k === 18 ? "lg" : k === 3 ? "st4" : "nw"}${k === 3 ? " lf" : ""}${k === 8 || k === 16 || k === 17 ? " r" : ""}${k < 3 ? " fz fz" + k : ""}${ed ? " ed" : ""}${mine ? " site" : ""}${k === 20 && c.sInf && !mine ? " inf" : ""}"${ed ? ` data-c="${col}"` : ""}${mine ? ` title="${esc(c.e[col].by + " · " + c.e[col].at + " 사이트에서 적음")}"` : k === 20 && c.sInf ? ` title="${esc("같은 예금주·같은 은행의 다른 문서 계좌번호 (" + c.sInf + ") — 눌러서 고칠 수 있어요")}"` : ""}>${k === 0 ? (g === "반려" ? '<span class="b red">반려</span>' : g === "제외대상" ? '<span class="b gray">제외대상</span>' : "-") : k === 2 ? `<a class="gwdoc" ${d.docId ? `href="${esc(eapUrlOf(d.docId, d.formId || 22, d.approKey))}" target="_blank" rel="noopener"` : ""} data-tip="${esc(d.docTitle)}">${esc(x)}</a>` : k === 4 && x ? `<span class="stg4 ${chipCls(d)}">${esc(x)}</span>` : esc(x)}</td>`; }).join("") + "</tr>"; };
+    return `<tr class="${rej ? "rj" : ""}" data-no="${esc(d.docNo)}">` + c.v.map((x, k) => { const col = COL4[k], ed = !!WHO4[k] && canW4(WHO4[k]), mine = !!WHO4[k] && c.e[col];
+      return `<td class="${k === 15 || k === 18 ? "lg" : k === 3 ? "st4" : "nw"}${k === 3 ? " lf" : ""}${k === 8 || k === 16 || k === 17 ? " r" : ""}${k < 3 ? " fz fz" + k : ""}${ed ? " ed" : ""}${mine ? " site" : ""}${k === 20 && c.sInf && !mine ? " inf" : ""}"${ed ? ` data-c="${col}"` : ""}${mine ? ` title="${esc(c.e[col].by + " · " + c.e[col].at + " 사이트에서 적음")}"` : k === 20 && c.sInf ? ` title="${esc("같은 예금주·같은 은행의 다른 문서 계좌번호 (" + c.sInf + ") — 눌러서 고칠 수 있어요")}"` : ""}>${k === 0 ? (g === "반려" ? '<span class="b red">반려</span>' : g === "제외대상" ? '<span class="b gray">제외대상</span>' : "-") : k === 2 ? `<a class="gwdoc" ${d.docId ? `href="${esc(eapUrlOf(d.docId, d.formId || 22, d.approKey))}" target="_blank" rel="noopener"` : ""} data-tip="${esc(d.docTitle)}">${esc(x)}</a>` : k === 4 && x ? `<span class="stg4 ${chipCls(d)}">${esc(x)}</span>` : ed && /^[JKM]$/.test(col) ? `<span class="dcell"><span>${esc(x)}</span><button class="cal" tabindex="-1" title="달력에서 고르기">📅</button></span>` : esc(x)}</td>`; }).join("") + "</tr>"; };
   renderFund._row = row; renderFund._doc = new Map(list.map(d => [d.docNo, d]));
   const shown = list.slice(0, f.lim || 500);
-  $("#v-fund").innerHTML = `<div class="bar fund-bar"><b>지출결의서 기준 송금 현황</b><span class="cnt">그룹웨어 지출결의현황 · 기안자 4명 · 2026-01-01 ~ 오늘 · 엑셀 '지출-지출결의서 기준_26Y' 칸 순서</span>
+  $("#v-fund").innerHTML = `<div class="bar fund-bar"><b>지출결의서 기준 송금 현황</b>
       <div class="seg" id="fSt">${[["", "전체"], ["ok", "-"], ["rej", "반려 " + nRej], ["ex", "제외대상 " + nEx]].map(([k, n]) => `<button data-v="${k}" class="${(f.st || "") === k ? "on" : ""}">${n}</button>`).join("")}</div>
       <select id="fBiz"><option value="">프로젝트 전체</option>${bizAll.map(b => `<option ${f.biz === b ? "selected" : ""}>${esc(b)}</option>`).join("")}</select>
       <select id="fWho">${whoOpts(f.who)}</select>
-      <input type="search" id="fQ" placeholder="찾기 (문서번호 · 제목 · 거래처 …)" value="${esc(f.q)}">
-      ${cfKeys.length ? `<button class="tfx" id="cfClear">칸 필터 ${cfKeys.length}개 걸림 · 모두 풀기 ✕</button>` : ""}
-      <span class="cnt">${list.length.toLocaleString()}건 · ${won(sum)}원</span></div>
+      ${(cfKeys.length || f.st || f.biz || f.who || f.q) ? `<button class="tfx" id="cfClear" title="구분 · 프로젝트 · 기안자 · 찾기 · 칸 필터를 모두 풉니다">필터 초기화 ✕${cfKeys.length ? ` (칸 필터 ${cfKeys.length}개)` : ""}</button>` : ""}
+      <button class="tfx lg4" id="f4Log" title="사이트에서 칸을 적거나 지운 기록 — 누구나 볼 수 있음">수정 내역 ${f4Logs().length.toLocaleString()}</button>
+      <span class="cnt" style="margin-left:auto">${list.length.toLocaleString()}건 · ${won(sum)}원</span>
+      <input type="search" id="fQ" placeholder="찾기 (문서번호 · 제목 · 거래처 …)" value="${esc(f.q)}"></div>
     <div class="tw fundw"><table class="t fundt">
       <thead><tr>${COLS.map((c, k) => `<th class="${k < 3 ? "fz fz" + k : ""}${WHO4[k] ? " w-" + WHO4[k] : ""}${cf[k] ? " cf-on" : ""}"><span class="cfh">${esc(c)}<button class="cf-btn" data-k="${k}" title="이 칸으로 거르기">▾</button></span>${WHO4[k] ? `<small>${WHO4[k] === "us" ? "우리 작성" : "재무팀 작성"}</small>` : ""}</th>`).join("")}</tr>
       <tr class="tot">${COLS.map((c, k) => `<th class="${k < 3 ? "fz fz" + k + " " : ""}${k === 8 || k === 17 ? "r" : ""}">${k === 2 ? "계" : k === 8 ? won(sum) : k === 17 ? won(unpaid) : ""}</th>`).join("")}</tr></thead>
@@ -1289,9 +1331,55 @@ function renderFund(){
   $("#fBiz").onchange = (e) => { f.biz = e.target.value; f.lim = 0; renderFund(); };
   $("#v-fund tbody").onclick = (e) => { const td = e.target.closest("td.ed"); if (td && !td.querySelector("input")) edit4(td); };
   $$("#v-fund .cf-btn").forEach(b => b.onclick = (e) => { e.stopPropagation(); cfOpen(b, +b.dataset.k); });
-  if ($("#cfClear")) $("#cfClear").onclick = () => { f.cf = {}; f.lim = 0; renderFund(); };
+  $("#f4Log").onclick = () => showF4Log("");
+  if ($("#cfClear")) $("#cfClear").onclick = () => { f.cf = {}; f.st = ""; f.biz = ""; f.who = ""; f.q = ""; f.lim = 0; renderFund(); };
   if ($("#fMore")) $("#fMore").onclick = () => { f.lim = (f.lim || 500) + 1000; renderFund(); };
   $("#fQ").oninput = (e) => { f.q = e.target.value; f.lim = 0; clearTimeout(renderFund._t); renderFund._t = setTimeout(() => { renderFund(); const i = $("#fQ"); i.focus(); i.setSelectionRange(i.value.length, i.value.length); }, 250); };
+}
+/* ── 수정 내역 — 2026-11-06 사용자: "수정내역을 계정로그인해서 들어온 사람 누구나 볼 수 있도록" ──
+   ④ 칸을 사이트에서 적거나 지운 기록(ex_meta 'f4log:YYYYMM'): 언제 · 누가 · 문서번호 · 칸 · 전 → 후. 최근 것 먼저 */
+const COLNM4 = { J: "송금 예정일", K: "완료여부", L: "기엽님 합의", M: "요청일자", N: "추가 의견", O: "지연일", P: "미지급 잔액", Q: "비고", R: "은행", S: "계좌번호", T: "예금주" };
+function f4Logs(){ const out = []; for (const k in (S.data || {}).meta || {}) if (k.startsWith("f4log:")) out.push(...(((S.data.meta[k] || {}).list) || [])); return out.sort((a, b) => String(b.at).localeCompare(String(a.at))); }
+function showF4Log(q0){
+  const all = f4Logs();
+  const draw = (q) => { q = (q || "").trim().toLowerCase();
+    const l = all.filter(x => !q || (x.no + " " + x.by + " " + (COLNM4[x.col] || x.col) + " " + x.from + " " + x.to).toLowerCase().includes(q));
+    return `<div class="mh"><h2>수정 내역</h2><span class="cnt">④ 송금 현황에서 사이트로 적거나 지운 기록 · ${all.length.toLocaleString()}건</span><button class="x" data-close>×</button></div>
+      <div class="mb"><div class="bar"><input type="search" id="lgQ" placeholder="찾기 (문서번호 · 이름 · 칸 · 값)" value="${esc(q)}"><span class="cnt">${l.length.toLocaleString()}건</span></div>
+      <div class="tw"><table class="t fit lgt"><colgroup><col style="width:130px"><col style="width:80px"><col style="width:250px"><col style="width:110px"><col><col></colgroup>
+        <thead><tr><th>언제</th><th>누가</th><th>문서번호</th><th>칸</th><th>바꾸기 전</th><th>바꾼 뒤</th></tr></thead>
+        <tbody>${l.map(x => `<tr><td>${esc(x.at)}</td><td>${esc(x.by)}</td><td class="mono">${esc(x.no)}</td><td>${esc(COLNM4[x.col] || x.col)} <small>(${esc(x.col)}열)</small></td><td class="wrap dim">${esc(x.from || "(빈 칸)")}</td><td class="wrap">${x.to ? esc(x.to) : '<span class="dim">(지움 — 엑셀 값·수식으로)</span>'}</td></tr>`).join("") || '<tr><td colspan="6" class="empty">아직 사이트에서 고친 기록이 없습니다.</td></tr>'}</tbody></table></div></div>`; };
+  openModal(draw(q0)); $("#modal").classList.add("wide");
+  const bind = () => { const i = $("#lgQ"); if (i) i.oninput = () => { const v = i.value, p = i.selectionStart; $("#modal").innerHTML = draw(v); bind(); const j = $("#lgQ"); j.focus(); j.setSelectionRange(p, p); }; };
+  bind();
+}
+
+/* ── 계정 관리 (관리자) — 2026-11-06 사용자: "내가 이거에 관리자니까 단가관리 사이트 처럼 계정관리 페이지를 좀 만들어줘" ──
+   계정은 업무관리 사이트와 같은 것(wm_accounts) — 여기서는 이 사이트 권한만 정함(계정 추가 · 삭제 · 비밀번호는 업무관리 사이트에서).
+   권한: 못 봄 · 보기만 · 우리 칸 작성(M·N·P·R·S·T) · 재무팀 칸 작성(J·K·L·O·Q) · 둘 다 작성. 업무관리 관리자는 늘 전부 */
+const LV4 = [["", "못 봄"], ["view", "보기만"], ["us", "우리 칸 작성"], ["fin", "재무팀 칸 작성"], ["all", "둘 다 작성"]];
+let ACC4 = null;
+async function renderAcct(){
+  const v = $("#v-acct");
+  if (((S.data || {}).user || {}).lv !== "admin"){ v.innerHTML = '<div class="panel empty">관리자만 볼 수 있는 화면입니다.</div>'; return; }
+  if (!ACC4){ v.innerHTML = '<div class="panel empty">계정을 불러오는 중…</div>'; try{ ACC4 = (await api("access")).list || []; }catch(e){ v.innerHTML = `<div class="panel empty">${esc(e.message)}</div>`; return; } }
+  const f = S.f.acct || (S.f.acct = { q: "" }), q = (f.q || "").trim().toLowerCase();
+  const list = ACC4.filter(a => !q || (a.name + " " + a.dept + " " + a.id).toLowerCase().includes(q))
+    .sort((a, b) => (b.lv === "admin") - (a.lv === "admin") || (!!b.lv) - (!!a.lv) || String(a.dept).localeCompare(String(b.dept), "ko") || String(a.name).localeCompare(String(b.name), "ko"));
+  const n = (lv) => ACC4.filter(a => a.lv === lv).length;
+  v.innerHTML = `<div class="bar acct-bar"><b>계정 관리</b><span class="cnt">계정 ${ACC4.length} · 관리자 ${n("admin")} · 둘 다 ${n("all")} · 우리 칸 ${n("us")} · 재무팀 칸 ${n("fin")} · 보기만 ${n("view")} · 못 봄 ${ACC4.filter(a => !a.lv).length}</span>
+      <input type="search" id="acQ" placeholder="찾기 (이름 · 부서 · 아이디)" value="${esc(f.q)}" style="margin-left:auto"></div>
+    <div class="tw"><table class="t fit act"><colgroup><col style="width:110px"><col style="width:150px"><col style="width:170px"><col style="width:110px"><col style="width:190px"><col style="width:170px"><col></colgroup>
+      <thead><tr><th>이름</th><th>부서</th><th>아이디</th><th>업무관리 권한</th><th>이 사이트 권한</th><th>권한 바꾼 사람</th><th>마지막 로그인</th></tr></thead>
+      <tbody>${list.map(a => `<tr class="${a.lv ? "" : "off"}"><td><b>${esc(a.name)}</b></td><td>${esc(a.dept || "")}</td><td class="mono">${esc(a.id)}</td><td>${a.role === "admin" ? '<span class="b grn">관리자</span>' : "팀원"}</td>
+        <td>${a.lv === "admin" ? '<span class="b grn">전부 (관리자)</span>' : `<select data-acc="${esc(a.id)}">${LV4.map(([k, t]) => `<option value="${k}" ${a.lv === k ? "selected" : ""}>${t}</option>`).join("")}</select>`}</td>
+        <td class="dim">${a.by ? esc(a.by + " · " + a.at) : ""}</td><td class="dim">${esc(a.last || "")}</td></tr>`).join("") || '<tr><td colspan="7" class="empty">계정이 없습니다.</td></tr>'}</tbody></table></div>
+    <div class="dnote">권한을 고르면 바로 바뀝니다(그 사람은 다음에 새로 불러올 때부터). <b>우리 칸</b> = 요청일자 · 추가 의견 · 미지급 잔액 · 은행 · 계좌번호 · 예금주, <b>재무팀 칸</b> = 송금 예정일 · 완료여부 · 기엽님 합의 · 지연일 · 비고.
+      계정 추가 · 삭제 · 비밀번호 초기화는 업무관리 사이트 계정과 같아서 업무관리 사이트에서 합니다.</div>`;
+  $("#acQ").oninput = (e) => { f.q = e.target.value; const p = e.target.selectionStart; renderAcct().then(() => { const i = $("#acQ"); i.focus(); i.setSelectionRange(p, p); }); };
+  $$("#v-acct select[data-acc]").forEach(s => s.onchange = async () => { const id = s.dataset.acc, lv = s.value;
+    try{ await api("access", { id, lv }); const a = ACC4.find(x => x.id === id); if (a){ a.lv = lv; a.by = S.data.user.name; a.at = new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 16).replace("T", " "); } toast(`${a ? a.name : id} — ${LV4.find(x => x[0] === lv)[1]}(으)로 바꿨습니다`); renderAcct(); }
+    catch(e){ toast(e.message); renderAcct(); } });
 }
 function renderRej(){
   const f = S.f.rej, F = S.data.meta.fund, all = rejRows();
@@ -1543,6 +1631,7 @@ async function load(quiet){
     if (!j.user){ $("#app").classList.add("hidden"); $("#login").classList.remove("hidden"); return; }
     $("#login").classList.add("hidden"); $("#app").classList.remove("hidden");
     $("#who").textContent = j.user.name + " 님";
+    $("#acctBtn").classList.toggle("hidden", j.user.lv !== "admin");
     if (!j.user.canView){ go("deny"); return; }
     let changed = true;
     if (j.delta && S.data){ changed = mergeDelta(S.data, j); j.meta = S.data.meta; }
@@ -1562,6 +1651,7 @@ $("#lbtn").onclick = async () => {
 };
 $("#lpw").onkeydown = (e) => { if (e.key === "Enter") $("#lbtn").click(); };
 $("#lid").onkeydown = (e) => { if (e.key === "Enter") $("#lpw").focus(); };
+$("#acctBtn").onclick = () => { ACC4 = null; go("acct"); };
 $("#logout").onclick = async () => { await api("logout", {}).catch(() => {}); location.reload(); };
 $("#syncInfo").onclick = () => load(true).then(() => toast("새로 불러왔습니다"));
 document.addEventListener("click", (e) => {
