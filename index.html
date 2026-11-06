@@ -358,7 +358,7 @@ td.rcvc .amt{color:#1d4f9c}
 .fundt th,.fundt td{border-right:1px solid #e9edeb}
 .fundt thead th.w-us{background:#eef6f1} .fundt thead th.w-fin{background:#f3f1fa}
 .fundt td.ed{cursor:text} .fundt td.ed:hover{outline:1px solid #b9d7c5;outline-offset:-1px;background:#fbfdfc}
-.fundt td.ed.site{color:#1d4f9c;font-weight:600}
+.fundt td.ed.site{color:#1d4f9c;font-weight:600} .fundt td.inf{color:#7c8a83;font-style:italic}
 .fundt td.ed input{width:100%;min-width:90px;font:inherit;font-size:12px;padding:1px 4px;border:1px solid var(--g);border-radius:4px;box-sizing:border-box}
 .fundt td.lg{white-space:normal!important;min-width:160px;max-width:300px;word-break:keep-all;overflow-wrap:anywhere}
 .fundt .r{text-align:right!important;font-variant-numeric:tabular-nums}
@@ -433,7 +433,7 @@ td .cut{display:inline-block;margin-top:3px;padding:1px 7px;border-radius:999px;
 <div id="toast" class="hidden"></div>
 <script>
 "use strict";
-const BUILD = "20261106.172108";   /* 배포할 때 scripts/deploy.js 가 판 번호로 바꾼다 */
+const BUILD = "20261106.172335";   /* 배포할 때 scripts/deploy.js 가 판 번호로 바꾼다 */
 const $ = (s, el) => (el || document).querySelector(s), $$ = (s, el) => [...(el || document).querySelectorAll(s)];
 const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const won = (n) => n == null || n === "" ? "" : Math.round(+n).toLocaleString("ko-KR");
@@ -1236,6 +1236,11 @@ function renderFund(){
      O 지연일 = 엑셀 수식 IF(K="", (비움), K−I) / P 미지급 잔액 = 엑셀 수식 IF(K>0, 0, G) — 0 은 '-' / R 은행 · T 예금주 = 지출결의 상세(bankNm · depositorDc), 없으면 엑셀 /
      S 계좌번호 = 그룹웨어 응답에서 가려져(암호화) 와서 지금은 엑셀 값 */
   const FX = new Map(); for (const x of ((S.data.meta || {}).fund || {}).rows || []) FX.set(String(x.no || "").trim(), x);
+  const nmz = (s) => String(s || "").replace(/\(주\)|주식회사|㈜|\s/g, "");
+  const ACC = new Map();   /* 예금주|은행 → 계좌번호(엑셀 줄 + 사이트에 적은 값) */
+  for (const x of ((S.data.meta || {}).fund || {}).rows || []) if (x.acct && x.acct !== "-" && x.holder) ACC.set(nmz(x.holder) + "|" + nmz(x.bank), { a: x.acct, from: "엑셀 " + String(x.no || "").replace(/^CTRE-[^-]*-/, "") });
+  const ACCH = new Map(); for (const x of ((S.data.meta || {}).fund || {}).rows || []) if (x.acct && x.acct !== "-" && x.holder){ const k = nmz(x.holder), o = ACCH.get(k); ACCH.set(k, o && o.a !== x.acct ? { a: "", many: 1 } : { a: x.acct, from: "엑셀 " + String(x.no || "").replace(/^CTRE-[^-]*-/, "") }); }
+  for (const k in S.data.meta || {}) if (k.startsWith("f4:")){ const v = (S.data.meta[k] || {}).v || {}; if (v.S && v.T) ACC.set(nmz(v.T.t) + "|" + nmz((v.R || {}).t), { a: v.S.t, from: "사이트 " + k.slice(3).replace(/^CTRE-[^-]*-/, "") }); }
   const dd = (a, b) => { const p = (s) => { s = String(s || "").replace(/\./g, "-"); return /^\d{4}-\d\d-\d\d/.test(s) ? Date.parse(s.slice(0, 10) + "T00:00:00Z") : NaN; }; const x = p(a), y = p(b); return isFinite(x) && isFinite(y) ? Math.round((x - y) / 864e5) : ""; };
   /* 2026-11-06 사용자: "직접 작성한다고 했던 란들은 내가 작성할 수 있도록 … 재무팀에서도 작성하는 란을 만들어줘야지" → 칸을 눌러 바로 적고 저장(/api/fund4 → ex_meta 'f4:문서번호').
      사이트에 적은 값이 먼저, 없으면 엑셀 값 · 수식. 사이트에 적은 칸은 파란 글씨(마우스를 올리면 누가 언제 적었는지) */
@@ -1246,10 +1251,13 @@ function renderFund(){
     const I = ymdS(d.payDt), K = pick(e, "K", x.done || "");
     const O = pick(e, "O", K ? String(dd(K, I)) : "");
     const pa = unpAuto(d, x, K), P = e.P ? e.P.t : (pa ? won(pa) : "-");
+    const bk = pick(e, "R", ln.bk || x.bank || ""), hd = pick(e, "T", ln.dp || x.holder || "");
+    const need = !e.S && !(x.acct && x.acct !== "-"), byH = (n) => { const o = n && ACCH.get(nmz(n)); return o && o.a ? o : null; };
+    const gs = need ? (ACC.get(nmz(hd) + "|" + nmz(bk)) || byH(hd) || byH(vend(d))) : null, sv = e.S ? e.S.t : (x.acct && x.acct !== "-" ? x.acct : gs ? gs.a : ""), sInf = gs ? gs.from : "";
     return { x, e, I, K, O, P, pNum: e.P ? (+String(e.P.t).replace(/[^\d.-]/g, "") || 0) : pa,
       v: [gb4(d), biz4(d), d.docNo, site4(d), stg4(d), vend(d), d.deptNm || "", d.empNm || "", won(d.docSumAm), String(d.upDate || ""), I,
         pick(e, "J", x.plan || ""), K, pick(e, "L", x.agree || ""), pick(e, "M", x.mreq || ""), pick(e, "N", x.note || ""), O, P, pick(e, "Q", x.memo || ""),
-        pick(e, "R", ln.bk || x.bank || ""), pick(e, "S", x.acct || ""), pick(e, "T", ln.dp || x.holder || "")] }; };
+        pick(e, "R", ln.bk || x.bank || ""), sv, pick(e, "T", ln.dp || x.holder || "")], sInf }; };
   /* 칸마다 필터(엑셀 자동 필터처럼) — 2026-11-06 사용자: "필터를 좀 걸 수 있게 해달라니까?" → 칸 이름 옆 ▾: 그 칸 값 목록 체크 · 검색. f.cf = { 칸번호: [고른 값…] } */
   const cf = f.cf || (f.cf = {}), cfKeys = Object.keys(cf).filter(k => Array.isArray(cf[k]));
   const val4 = (v, k) => { const s = String(v[k] == null ? "" : v[k]).trim(); return s === "" ? "(빈 칸)" : s; };
@@ -1258,7 +1266,7 @@ function renderFund(){
   const unpaid = list.reduce((s, d) => s + cells(d).pNum, 0);
   const row = (d) => { const g = gb4(d), rej = g !== "-", c = cells(d);
     return `<tr class="${rej ? "rj" : ""}" data-no="${esc(d.docNo)}">` + c.v.map((x, k) => { const col = COL4[k], ed = !!WHO4[k], mine = ed && c.e[col];
-      return `<td class="${k === 15 || k === 18 ? "lg" : k === 3 ? "st4" : "nw"}${k === 3 ? " lf" : ""}${k === 8 || k === 16 || k === 17 ? " r" : ""}${k < 3 ? " fz fz" + k : ""}${ed ? " ed" : ""}${mine ? " site" : ""}"${ed ? ` data-c="${col}"` : ""}${mine ? ` title="${esc(c.e[col].by + " · " + c.e[col].at + " 사이트에서 적음")}"` : ""}>${k === 0 ? (g === "반려" ? '<span class="b red">반려</span>' : g === "제외대상" ? '<span class="b gray">제외대상</span>' : "-") : k === 2 ? `<a class="gwdoc" ${d.docId ? `href="${esc(eapUrlOf(d.docId, d.formId || 22, d.approKey))}" target="_blank" rel="noopener"` : ""} data-tip="${esc(d.docTitle)}">${esc(x)}</a>` : k === 4 && x ? `<span class="stg4 ${chipCls(d)}">${esc(x)}</span>` : esc(x)}</td>`; }).join("") + "</tr>"; };
+      return `<td class="${k === 15 || k === 18 ? "lg" : k === 3 ? "st4" : "nw"}${k === 3 ? " lf" : ""}${k === 8 || k === 16 || k === 17 ? " r" : ""}${k < 3 ? " fz fz" + k : ""}${ed ? " ed" : ""}${mine ? " site" : ""}${k === 20 && c.sInf && !mine ? " inf" : ""}"${ed ? ` data-c="${col}"` : ""}${mine ? ` title="${esc(c.e[col].by + " · " + c.e[col].at + " 사이트에서 적음")}"` : k === 20 && c.sInf ? ` title="${esc("같은 예금주·같은 은행의 다른 문서 계좌번호 (" + c.sInf + ") — 눌러서 고칠 수 있어요")}"` : ""}>${k === 0 ? (g === "반려" ? '<span class="b red">반려</span>' : g === "제외대상" ? '<span class="b gray">제외대상</span>' : "-") : k === 2 ? `<a class="gwdoc" ${d.docId ? `href="${esc(eapUrlOf(d.docId, d.formId || 22, d.approKey))}" target="_blank" rel="noopener"` : ""} data-tip="${esc(d.docTitle)}">${esc(x)}</a>` : k === 4 && x ? `<span class="stg4 ${chipCls(d)}">${esc(x)}</span>` : esc(x)}</td>`; }).join("") + "</tr>"; };
   renderFund._row = row; renderFund._doc = new Map(list.map(d => [d.docNo, d]));
   const shown = list.slice(0, f.lim || 500);
   $("#v-fund").innerHTML = `<div class="bar fund-bar"><b>지출결의서 기준 송금 현황</b><span class="cnt">그룹웨어 지출결의현황 · 기안자 4명 · 2026-01-01 ~ 오늘 · 엑셀 '지출-지출결의서 기준_26Y' 칸 순서</span>
