@@ -410,7 +410,7 @@ td .cut{display:inline-block;margin-top:3px;padding:1px 7px;border-radius:999px;
 <div id="toast" class="hidden"></div>
 <script>
 "use strict";
-const BUILD = "20261106.163516";   /* 배포할 때 scripts/deploy.js 가 판 번호로 바꾼다 */
+const BUILD = "20261106.163645";   /* 배포할 때 scripts/deploy.js 가 판 번호로 바꾼다 */
 const $ = (s, el) => (el || document).querySelector(s), $$ = (s, el) => [...(el || document).querySelectorAll(s)];
 const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const won = (n) => n == null || n === "" ? "" : Math.round(+n).toLocaleString("ko-KR");
@@ -1321,8 +1321,8 @@ function poDetailHtml(n, p, c, docs){
         return `<tr class="rc"><td><span class="lt-tag rc">입고</span></td><td>${ymd(x.dt).slice(5)}</td><td class="mono">${esc(x.rv)}</td><td class="r">${won(x.qt)}</td>
           <td class="r">${won(l.um)}</td><td class="r ${dif ? "neg" : "none"}">${dif ? won(u) : "없음"}</td><td class="r">${won(x.sup)}</td><td class="r"><b class="blu">${won(x.sum)}</b></td></tr>`; };
       const nm = String(l.nm || "").trim(), dc = String(l.dc || "").trim();
-      return `<tr class="it"><td colspan="8"><span class="sq">${l.sq}</span><b>${esc(nm || dc)}</b>${nm && dc && dc !== nm ? `<span class="spec">${esc(dc)}</span>` : ""}</td></tr>
-          <tr><td><span class="lt-tag">발주</span></td><td>${ymd(p.poDt).slice(5)}</td><td class="mono">${esc(n)}</td><td class="r">${won(l.qt)}</td><td class="r">${won(l.um)}</td><td class="r ${chg ? "neg" : "none"}">${chg ? won(chg) : "없음"}</td><td class="r">${won(l.sup)}</td><td class="r"><b>${won(l.sum)}</b></td></tr>
+      return `<tr class="it"><td colspan="8"><span class="sq">${l.sq}</span><b>${esc(dc && dc !== "-" ? dc : nm)}</b></td></tr>
+          <tr><td><span class="lt-tag">발주</span></td><td>${ymd(p.poDt).slice(5)}</td><td class="mono">${poNoLink(n).replace(/<button[\s\S]*$/, "")}</td><td class="r">${won(l.qt)}</td><td class="r">${won(l.um)}</td><td class="r ${chg ? "neg" : "none"}">${chg ? won(chg) : "없음"}</td><td class="r">${won(l.sup)}</td><td class="r"><b>${won(l.sum)}</b></td></tr>
           ${rc.length ? rc.map(rcvRow).join("") + (rc.length > 1 ? `<tr class="rc tot"><td></td><td colspan="2">입고 합계${rq < l.qt ? " · 일부" : ""}</td><td class="r">${won(rq)}</td><td></td><td></td><td class="r">${won(rc.reduce((s, x) => s + (+x.sup || 0), 0))}</td><td class="r"><b class="blu">${won(rs)}</b></td></tr>` : "")
             : `<tr class="rc none"><td><span class="lt-tag none">입고</span></td><td colspan="7">입고 전 (계산서 없음)</td></tr>`}`; };
   const siteCard = (ls) => {
