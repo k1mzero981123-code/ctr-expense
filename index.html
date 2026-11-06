@@ -340,7 +340,9 @@ td.rcvc .amt{color:#1d4f9c}
 .fundt tbody tr:hover td{background:#f7faf8}
 .fundt tr.xh td{color:#9aa49f}
 .fundt .fz{position:sticky;z-index:2;background:#fff} .fundt thead .fz{z-index:4;background:#f4f6f5} .fundt thead tr.tot .fz{background:#fbfcfb}
-.fundt .fz0{left:0} .fundt .fz1{left:var(--fz1,72px);box-shadow:1px 0 0 var(--line)}
+.fundt .fz0{left:0} .fundt .fz1{left:var(--fz1,48px)} .fundt .fz2{left:var(--fz2,120px);box-shadow:1px 0 0 var(--line)}
+.fundt tr.rj td{background:#fff6f5}
+.fundw .more{text-align:center;padding:10px} .fundw .more button{border:1px solid var(--line);background:#fff;border-radius:8px;padding:6px 16px;cursor:pointer;font:inherit}
 a.gwbtn.gwdoc{display:inline-block;text-decoration:none;border:1px solid var(--g);border-bottom:1px solid var(--g);color:var(--g-d)}
 .gwdoc{color:#1d4f9c;text-decoration:none;font-weight:700;border-bottom:1px dashed #9db6dc} .gwdoc:hover{border-bottom-style:solid}
 #v-main .tiles .tile.act{box-shadow:0 0 0 2px var(--g) inset,var(--sh)}
@@ -380,7 +382,7 @@ td .cut{display:inline-block;margin-top:3px;padding:1px 7px;border-radius:999px;
       <button data-go="main">① 실시간 상신 검토<span class="n hidden" id="nLive"></span></button>
       <button data-go="check">② 올해 중복·금액 검토<span class="n hidden" id="nCheck"></span></button>
       <button data-go="rej">③ 반려 후 지출 검토<span class="n hidden" id="nRej"></span></button>
-      <button data-go="fund">④ 송금 현황 (엑셀)</button>
+      <button data-go="fund">④ 송금 현황</button>
     </nav>
     <div class="hright"><span class="sync" id="syncInfo" title="눌러서 새로 불러오기"></span><span id="who"></span><button id="logout">로그아웃</button></div>
   </header>
@@ -400,7 +402,7 @@ td .cut{display:inline-block;margin-top:3px;padding:1px 7px;border-radius:999px;
 <div id="toast" class="hidden"></div>
 <script>
 "use strict";
-const BUILD = "20261106.144202";   /* 배포할 때 scripts/deploy.js 가 판 번호로 바꾼다 */
+const BUILD = "20261106.144506";   /* 배포할 때 scripts/deploy.js 가 판 번호로 바꾼다 */
 const $ = (s, el) => (el || document).querySelector(s), $$ = (s, el) => [...(el || document).querySelectorAll(s)];
 const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const won = (n) => n == null || n === "" ? "" : Math.round(+n).toLocaleString("ko-KR");
@@ -1102,39 +1104,44 @@ function poNoLink(n){
   return `<b class="mono">${esc(n)}</b><button class="gwbtn" data-gwpo="${esc(n)}" title="결재문서를 아직 못 찾은 발주 — 아마란스 발주등록을 열고 발주번호를 복사합니다(발주번호 칸에 Ctrl+V 후 조회)">발주등록 ↗</button>`;
 }
 function renderFund(){
-  /* 2026-11-06 사용자: "이따위로 만들어두면 내가 어떻게 보라는거냐 … 저렇게 잘리고 굵직하게 저렇게 해두면 가독성이 완전 떨어지자나" →
-     글자는 엑셀 그대로 두되 보기는 사이트 표처럼: 엑셀 형광색·굵은 글씨 없음, 문서번호·금액·날짜 같은 짧은 칸은 한 줄(끊기지 않게), 제목·추가 의견·비고만 줄바꿈.
-     엑셀 위 장식 줄(▣ 제목 · 빈 줄 · '사업부 작성')은 칸 이름 아래 작은 표시로, '계' 줄은 칸 이름 바로 아래 합계 줄로. 칸이 많아 화면보다 넓으면 표 안에서만 옆으로 밀어 봄(머리 줄·첫 두 칸 고정) */
-  const fs_ = (S.data.meta || {}).fundsheet, f = S.f.fund || (S.f.fund = { all: false, q: "" });
-  if (!fs_ || !fs_.rows){ $("#v-fund").innerHTML = '<div class="panel empty">자금수지 엑셀을 아직 못 읽었습니다. 다음 수집 때 올라옵니다.</div>'; return; }
-  const R = fs_.rows;
-  /* 위 줄 구성은 엑셀을 고치면 바뀐다(2026-11-06 14:10 사용자가 장식 줄을 빼 1줄 칸 이름 · 2줄 합계로 정리) → '문서번호' 칸이 있는 줄을 칸 이름 줄로 찾는다 */
-  let hi = R.findIndex(r => r.c.some(v => String(v).replace(/\s/g, "") === "문서번호")); if (hi < 0) hi = 0;
-  const hdr = R[hi].c, tagR = R.slice(0, hi).find(r => r.c.some(v => /사업부\s*작성/.test(v))), tag = tagR ? tagR.c : [];
-  const isTot = (r) => !!r && !r.c.some(v => /^CTRE-/.test(v)) && r.c.some(v => /^-?[\d,]{4,}$/.test(String(v).trim()));
-  const totR = isTot(R[hi + 1]) ? R[hi + 1] : R.slice(0, hi).reverse().find(isTot), tot = totR ? totR.c : [];
-  const HEAD = hi + 1 + (totR && totR === R[hi + 1] ? 1 : 0);
-  const cols = fs_.cols.map((c, i) => ({ i, w: +c.w || 0, h: !!c.h, nm: String(hdr[i] || "").replace(/\s*\n\s*/g, " ").trim() })).filter(c => !c.h && c.w > 0 && (c.nm || R.slice(HEAD).some(r => r.c[c.i])));
-  const LONG = /제목|의견|비고/;
-  for (const c of cols) c.long = LONG.test(c.nm);
+  /* ④ 송금 현황 — 2026-11-06 사용자: "이 엑셀을 결국 우리는 계속 사용을 해야되는거거든 … 엑셀을 그대로 너한테 넣으라고 하니까 너가 지금 좀 헷갈리는 것 같애.
+     회계처리에서 내가 지출결의서 볼 수 있는 내역 … 26년 1월 1일부터 지금까지 내역을 이 엑셀 시트에 맞게끔 내역을 들고와주고, 맨 앞에 열에는 반려 / - 이렇게 구분 … 일단 엑셀 데이터는 지우자".
+     → 엑셀 복사본 대신 수집한 지출결의현황(기안자 4명, 1/1~)을 엑셀 '지출-지출결의서 기준_26Y' 칸 순서대로. 맨 앞 '구분' = 반려(결재상태 반려) / -(그 밖). 삭제·미상신(문서번호 없음)은 뺌.
+     그룹웨어 지출결의 목록에 없는 칸(송금 예정일 · 완료여부 · 합의 · 요청일자 · 추가 의견 · 지연일 · 미지급 잔액 · 비고 · 은행 · 계좌번호 · 예금주)은 비워 둠.
+     짧은 칸은 한 줄, 제목만 줄바꿈. 칸 이름 줄 · 합계 줄 · 앞 세 칸 고정. 문서번호를 누르면 결재문서 팝업 */
+  const f = S.f.fund || (S.f.fund = { q: "", st: "", who: "" });
+  const COLS = ["구분", "프로젝트", "문서번호", "기안서 제목", "거래처", "기안부서", "기안자", "금액 (VAT포함)", "기안일자", "기안서 기준 요청일", "송금 예정일", "완료여부", "기엽님 합의", "요청일자", "추가 의견", "지연일", "미지급 잔액", "비고", "은행", "계좌번호", "예금주"];
+  const vend = (d) => { const t = (d._det || []).map(l => l.tr).find(Boolean); return t || d._vendor || vendorOf(d.docTitle) || ""; };
+  const ymdS = (s) => { s = String(s || ""); return /^\d{8}$/.test(s) ? `${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6)}` : s; };
+  let list = S.docs.filter(d => !d._gone && d.docNo && d.approState !== "-3" && d.approState !== "5" && String(d.upDate) >= "2026-01-01");
+  const nRej = list.filter(d => d.approState === "4").length;
+  if (f.st === "rej") list = list.filter(d => d.approState === "4"); else if (f.st === "ok") list = list.filter(d => d.approState !== "4");
+  if (f.who) list = list.filter(d => d.empNm === f.who);
   const q = (f.q || "").trim().toLowerCase();
-  const all = R.slice(HEAD), nHid = all.filter(r => r.h).length;
-  const body = all.filter(r => (f.all || !r.h) && r.c.some(Boolean) && (!q || r.c.join(" ").toLowerCase().includes(q)));
-  const numRe = /^(-?[\d,]+(\.\d+)?|-|\(?[\d,]+\)?)$/;
-  const td = (c, v) => `<td class="${c.long ? "lg" : "nw"}${numRe.test(v) ? " r" : ""}">${esc(v).replace(/\n/g, "<br>")}</td>`;
-  const title = String(R.slice(0, hi).map(r => r.c.find(v => /^▣/.test(v))).find(Boolean) || "지출결의서 기준 송금 현황").replace(/^▣\s*/, "");
-  $("#v-fund").innerHTML = `<div class="bar fund-bar"><b>${esc(title || fs_.sheet)}</b><span class="cnt">${esc(fs_.file)} · 시트 ${esc(fs_.sheet)} · 엑셀 저장 ${esc(fs_.fileAt)}</span>
+  if (q) list = list.filter(d => (d.docNo + " " + d.docTitle + " " + vend(d) + " " + d.empNm).toLowerCase().includes(q));
+  list = list.slice().sort((a, b) => String(b.upDate).localeCompare(String(a.upDate)) || String(b.docNo).localeCompare(String(a.docNo)));
+  const sum = list.reduce((s, d) => s + (+d.docSumAm || 0), 0);
+  const row = (d) => { const rej = d.approState === "4";
+    const v = [rej ? "반려" : "-", d.pjtNm || "", d.docNo, d.docTitle, vend(d), d.deptNm || "", d.empNm || "", won(d.docSumAm), String(d.upDate || ""), ymdS(d.payDt), "", "", "", "", "", "", "", "", "", "", ""];
+    return `<tr class="${rej ? "rj" : ""}">` + v.map((x, k) => `<td class="${k === 3 ? "lg" : "nw"}${k === 7 ? " r" : ""}${k < 3 ? " fz fz" + k : ""}">${k === 0 ? (rej ? '<span class="b red">반려</span>' : "-") : k === 2 && d.docId ? `<a class="gwdoc" href="${esc(eapUrlOf(d.docId, d.formId || 22, d.approKey))}" target="_blank" rel="noopener">${esc(x)}</a>` : esc(x)}</td>`).join("") + "</tr>"; };
+  const shown = list.slice(0, f.lim || 500);
+  $("#v-fund").innerHTML = `<div class="bar fund-bar"><b>지출결의서 기준 송금 현황</b><span class="cnt">그룹웨어 지출결의현황 · 기안자 4명 · 2026-01-01 ~ 오늘 · 엑셀 '지출-지출결의서 기준_26Y' 칸 순서</span>
+      <div class="seg" id="fSt">${[["", "전체"], ["ok", "-"], ["rej", "반려 " + nRej]].map(([k, n]) => `<button data-v="${k}" class="${(f.st || "") === k ? "on" : ""}">${n}</button>`).join("")}</div>
+      <select id="fWho">${whoOpts(f.who)}</select>
       <input type="search" id="fQ" placeholder="찾기 (문서번호 · 제목 · 거래처 …)" value="${esc(f.q)}">
-      ${nHid ? `<label class="chk"><input type="checkbox" id="fAll" ${f.all ? "checked" : ""}> 엑셀에서 숨긴 줄도 보기 (${nHid.toLocaleString()}줄)</label>` : ""}
-      <span class="cnt">${body.length.toLocaleString()}줄</span></div>
+      <span class="cnt">${list.length.toLocaleString()}건 · ${won(sum)}원</span></div>
     <div class="tw fundw"><table class="t fundt">
-      <thead><tr>${cols.map((c, k) => `<th class="${k < 2 ? "fz fz" + k : ""}">${esc(c.nm)}${tag[c.i] ? '<small>사업부 작성</small>' : ""}</th>`).join("")}</tr>
-      ${cols.some(c => tot[c.i]) ? `<tr class="tot">${cols.map((c, k) => `<th class="${k < 2 ? "fz fz" + k + " " : ""}${numRe.test(tot[c.i] || "") ? "r" : ""}">${esc(tot[c.i] || "")}</th>`).join("")}</tr>` : ""}</thead>
-      <tbody>${body.map(r => `<tr${r.h ? ' class="xh"' : ""}>` + cols.map((c, k) => { const v = r.c[c.i] || ""; return k < 2 ? td(c, v).replace('<td class="', `<td class="fz fz${k} `) : td(c, v); }).join("") + "</tr>").join("") || `<tr><td colspan="${cols.length}" class="empty">줄이 없습니다.</td></tr>`}</tbody></table></div>`;
-  /* 고정 칸 위치 — 첫 칸 너비 · 머리 줄 높이를 재서 둘째 칸 · 합계 줄을 붙인다 */
-  (typeof requestAnimationFrame === "function" ? requestAnimationFrame : setTimeout)(() => { try{ const t = $("#v-fund .fundt"), th = t && t.querySelector("thead th.fz0"), r1 = t && t.querySelector("thead tr"); if (th) t.style.setProperty("--fz1", th.offsetWidth + "px"); if (r1) t.querySelectorAll("thead tr.tot th").forEach(x => x.style.top = r1.offsetHeight + "px"); }catch(e){} });
-  if ($("#fAll")) $("#fAll").onchange = (e) => { f.all = e.target.checked; renderFund(); };
-  $("#fQ").oninput = (e) => { f.q = e.target.value; clearTimeout(renderFund._t); renderFund._t = setTimeout(() => { renderFund(); const i = $("#fQ"); i.focus(); i.setSelectionRange(i.value.length, i.value.length); }, 250); };
+      <thead><tr>${COLS.map((c, k) => `<th class="${k < 3 ? "fz fz" + k : ""}">${esc(c)}</th>`).join("")}</tr>
+      <tr class="tot">${COLS.map((c, k) => `<th class="${k < 3 ? "fz fz" + k + " " : ""}${k === 7 ? "r" : ""}">${k === 2 ? "계" : k === 7 ? won(sum) : ""}</th>`).join("")}</tr></thead>
+      <tbody>${shown.map(row).join("") || `<tr><td colspan="${COLS.length}" class="empty">문서가 없습니다.</td></tr>`}</tbody></table>
+      ${list.length > shown.length ? `<div class="more"><button id="fMore">${(list.length - shown.length).toLocaleString()}건 더 보기</button></div>` : ""}</div>`;
+  (typeof requestAnimationFrame === "function" ? requestAnimationFrame : setTimeout)(() => { try{ const t = $("#v-fund .fundt"), r1 = t.querySelector("thead tr"), a = t.querySelector("thead th.fz0"), b = t.querySelector("thead th.fz1");
+    t.style.setProperty("--fz1", a.offsetWidth + "px"); t.style.setProperty("--fz2", (a.offsetWidth + b.offsetWidth) + "px");
+    t.querySelectorAll("thead tr.tot th").forEach(x => x.style.top = r1.offsetHeight + "px"); }catch(e){} });
+  $$("#fSt button").forEach(b => b.onclick = () => { f.st = b.dataset.v; f.lim = 0; renderFund(); });
+  $("#fWho").onchange = (e) => { f.who = e.target.value; f.lim = 0; renderFund(); };
+  if ($("#fMore")) $("#fMore").onclick = () => { f.lim = (f.lim || 500) + 1000; renderFund(); };
+  $("#fQ").oninput = (e) => { f.q = e.target.value; f.lim = 0; clearTimeout(renderFund._t); renderFund._t = setTimeout(() => { renderFund(); const i = $("#fQ"); i.focus(); i.setSelectionRange(i.value.length, i.value.length); }, 250); };
 }
 function renderRej(){
   const f = S.f.rej, F = S.data.meta.fund, all = rejRows();
