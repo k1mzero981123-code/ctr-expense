@@ -345,6 +345,7 @@ td.rcvc .amt{color:#1d4f9c}
 .fundw .more{text-align:center;padding:10px} .fundw .more button{border:1px solid var(--line);background:#fff;border-radius:8px;padding:6px 16px;cursor:pointer;font:inherit}
 a.gwbtn.gwdoc{display:inline-block;text-decoration:none;border:1px solid var(--g);border-bottom:1px solid var(--g);color:var(--g-d)}
 .gwdoc{color:#1d4f9c;text-decoration:none;font-weight:700;border-bottom:1px dashed #9db6dc} .gwdoc:hover{border-bottom-style:solid}
+.lv-more{text-align:center;padding:10px;color:var(--ink-2);font-size:12px}
 #v-main .tiles .tile.act{box-shadow:0 0 0 2px var(--g) inset,var(--sh)}
 .tfx{border:1px solid var(--g);background:var(--g-bg);color:var(--g-d);border-radius:999px;padding:4px 12px;font:inherit;font-size:12.5px;font-weight:700;cursor:pointer;white-space:nowrap}
 .tw.np{margin-bottom:10px;max-height:none} .tw.np td.wrap{white-space:normal;word-break:keep-all;overflow-wrap:anywhere}
@@ -402,7 +403,7 @@ td .cut{display:inline-block;margin-top:3px;padding:1px 7px;border-radius:999px;
 <div id="toast" class="hidden"></div>
 <script>
 "use strict";
-const BUILD = "20261106.144506";   /* 배포할 때 scripts/deploy.js 가 판 번호로 바꾼다 */
+const BUILD = "20261106.154936";   /* 배포할 때 scripts/deploy.js 가 판 번호로 바꾼다 */
 const $ = (s, el) => (el || document).querySelector(s), $$ = (s, el) => [...(el || document).querySelectorAll(s)];
 const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const won = (n) => n == null || n === "" ? "" : Math.round(+n).toLocaleString("ko-KR");
@@ -840,6 +841,7 @@ function nopoList(docs){
         <td class="mono">${esc(shortNo(d))}</td><td>${esc(d.empNm)}</td><td class="mono">${d._pos.length ? d._pos.map(esc).join(", ") : "—"}</td>
         <td class="wrap">${esc(why(d) || d.docTitle)}<div class="sub">${esc(d.docTitle)}</div></td></tr>`; }).join("")}</tbody></table></div>`;
 }
+const LIVE_CHUNK = 150;
 function renderLive(){
   /* 기본 보기 '6월~ 발주 전체' — 2026-11-04 사용자: "지금 지출결의서 탭은 26년 6월 발주건부터 들고와주고". 발주일 6/1 이후 발주(원재료·상품)에 붙은 지출결의 전부 + 아직 지출결의 없는 발주도 줄로 */
   const f = S.f.main, wk = f.view === "week", all = f.view === "all";
@@ -878,7 +880,13 @@ function renderLive(){
           const g = { po: p.poNb, p, site: poSite(p), docs: [], last: ymd(p.poDt) }; g.pat = payPat(g); gs.push(g); }
         gs.sort((a, b) => (a.po ? 0 : 1) - (b.po ? 0 : 1) || String(b.last).localeCompare(String(a.last)) || b.po.localeCompare(a.po));
       }
-      return gs.map(liveRow).join("") || `<tr><td colspan="14" class="empty">해당 문서가 없습니다.</td></tr>`; })()}</tbody></table></div>`;
+      /* 2026-11-06 사용자: "사이트 지금 너무 렉 걸리는데 안끊기게" — 990줄(글자 1MB)을 한 번에 그리던 것 → 처음 150줄, 표를 아래로 내리면 150줄씩 이어 붙임 */
+      renderLive._gs = gs; renderLive._n = Math.min(gs.length, LIVE_CHUNK);
+      return gs.slice(0, LIVE_CHUNK).map(liveRow).join("") || `<tr><td colspan="14" class="empty">해당 문서가 없습니다.</td></tr>`; })()}</tbody></table>${renderLive._gs.length > LIVE_CHUNK ? `<div class="lv-more" id="lvMore">아래로 내리면 이어서 보여 줍니다 · ${renderLive._gs.length.toLocaleString()}줄 중 <b>${renderLive._n}</b></div>` : ""}</div>`;
+  { const tw = $("#v-main .tw.fit"), more = () => { const gs = renderLive._gs, n = renderLive._n; if (!gs || n >= gs.length) return;
+      const tb = tw.querySelector("tbody"); tb.insertAdjacentHTML("beforeend", gs.slice(n, n + LIVE_CHUNK).map(liveRow).join("")); renderLive._n = Math.min(gs.length, n + LIVE_CHUNK);
+      const m = $("#lvMore"); if (m){ if (renderLive._n >= gs.length) m.remove(); else m.querySelector("b").textContent = renderLive._n; } };
+    if (tw) tw.onscroll = () => { if (tw.scrollTop + tw.clientHeight > tw.scrollHeight - 600) more(); }; }
   $$("#v-main .tiles .tile[data-tf]").forEach(t => t.onclick = () => { f.tile = f.tile === t.dataset.tf ? "" : t.dataset.tf; renderMain(); });
   if ($("#tfClear")) $("#tfClear").onclick = () => { f.tile = ""; renderMain(); };
   $("#lWho").onchange = (e) => { f.who = e.target.value; renderMain(); };
@@ -1364,19 +1372,37 @@ async function saveReview(btn){
 }
 
 /* ───────────── 시작 · 이벤트 ───────────── */
+/* 바뀐 것만 합치기 — 2026-11-06 사용자: "업데이트 이력을 계속 하지말고 새로운것만 계속 업데이트를 해줘". 처음 열 때만 전체, 그 뒤(5분마다 · 수집 시각 누름)는 ?since= 로 그 뒤 바뀐 것만 받아 key 로 합친다.
+   바뀐 게 없으면 판정 · 화면을 다시 그리지 않는다(열어 둔 표 · 스크롤 그대로) */
+function mergeDelta(D, j){
+  let ch = false;
+  const up = (arr, rows, keyOf) => { if (!rows.length) return; ch = true; const ix = new Map(arr.map((x, i) => [keyOf(x), i])); for (const r of rows){ const i = ix.get(keyOf(r)); if (i == null){ ix.set(keyOf(r), arr.length); arr.push(r); } else arr[i] = r; } };
+  up(D.docs, j.docs || [], x => x.linkKey);
+  up(D.pos, j.pos || [], x => x.poNb);
+  if (JSON.stringify(D.reviews) !== JSON.stringify(j.reviews || [])){ D.reviews = j.reviews || []; ch = true; }
+  for (const k in j.meta || {}){ if (!/^(sync|sync_err)$/.test(k)) ch = true; D.meta[k] = j.meta[k]; }
+  for (const k in j.detPart || {}){ D.meta[k] = Object.assign(D.meta[k] || {}, j.detPart[k]); ch = true; }
+  D.comments = D.comments || {}; for (const k in j.comments || {}){ D.comments[k] = j.comments[k]; ch = true; }
+  D.now = j.now;
+  return ch;
+}
 async function load(quiet){
   try{
-    const j = await api("data");
+    const since = quiet && S.data && S.data.now ? S.data.now : "";
+    const j = await api("data" + (since ? "?since=" + encodeURIComponent(since) : ""));
     if (!j.user){ $("#app").classList.add("hidden"); $("#login").classList.remove("hidden"); return; }
     $("#login").classList.add("hidden"); $("#app").classList.remove("hidden");
     $("#who").textContent = j.user.name + " 님";
     if (!j.user.canView){ go("deny"); return; }
-    S.data = j; judge();
-    const m = j.meta.sync || {}, e = j.meta.sync_err;
+    let changed = true;
+    if (j.delta && S.data){ changed = mergeDelta(S.data, j); j.meta = S.data.meta; }
+    else { S.data = j; }
+    if (changed) judge();
+    const m = S.data.meta.sync || {}, e = S.data.meta.sync_err;
     const late = e && (!m.at || e.at > m.at);
     $("#syncInfo").textContent = late ? `⚠ 수집 실패 ${e.at.slice(5)} — ${e.msg}` : `그룹웨어 수집 ${m.at ? m.at.slice(5) : "-"} · 10분마다`;
     $("#syncInfo").classList.toggle("bad", !!late);
-    if (!quiet) go(S.page === "deny" ? "main" : S.page); else render();
+    if (!quiet) go(S.page === "deny" ? "main" : S.page); else if (changed) render();
   }catch(err){ toast(err.message); }
 }
 $("#lbtn").onclick = async () => {
